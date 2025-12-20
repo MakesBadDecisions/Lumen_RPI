@@ -38,7 +38,23 @@ class SleepDetector(BaseStateDetector):
         if not context:
             return False
 
-        # Get sleep timeout from context (default 300 seconds = 5 minutes)
+        # First check: printer must be truly idle (no active states)
+        # Check no heaters active
+        extruder = status.get('extruder', {})
+        heater_bed = status.get('heater_bed', {})
+        if extruder.get('target', 0) > 0 or heater_bed.get('target', 0) > 0:
+            return False
+
+        # Check not printing
+        print_stats = status.get('print_stats', {})
+        if print_stats.get('state', '').lower() in ['printing', 'paused']:
+            return False
+
+        # Check not error
+        if status.get('idle_timeout', {}).get('state', '').lower() == 'error':
+            return False
+
+        # Get sleep timeout from context
         sleep_timeout = context.get('sleep_timeout', 300.0)
 
         # Get current state info
@@ -46,7 +62,11 @@ class SleepDetector(BaseStateDetector):
         state_enter_time = context.get('state_enter_time', 0.0)
         current_time = context.get('current_time', 0.0)
 
-        # Must currently be in bored state
+        # If we were already asleep, stay asleep
+        if last_state == 'sleep':
+            return True
+
+        # Must currently be in bored state to transition to sleep
         if last_state != 'bored':
             return False
 

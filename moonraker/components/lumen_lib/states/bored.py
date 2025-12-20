@@ -38,22 +38,37 @@ class BoredDetector(BaseStateDetector):
         if not context:
             return False
 
-        # Get bored timeout from context (default 60 seconds)
+        # First check: printer must be truly idle (no active states)
+        # Check no heaters active
+        extruder = status.get('extruder', {})
+        heater_bed = status.get('heater_bed', {})
+        if extruder.get('target', 0) > 0 or heater_bed.get('target', 0) > 0:
+            return False
+
+        # Check not printing
+        print_stats = status.get('print_stats', {})
+        if print_stats.get('state', '').lower() in ['printing', 'paused']:
+            return False
+
+        # Check not error
+        if status.get('idle_timeout', {}).get('state', '').lower() == 'error':
+            return False
+
+        # Get bored timeout from context
         bored_timeout = context.get('bored_timeout', 60.0)
 
-        # Get current state info
+        # Get current state info - track how long we've been in idle/bored
         last_state = context.get('last_state', '')
         state_enter_time = context.get('state_enter_time', 0.0)
         current_time = context.get('current_time', 0.0)
 
-        # Must currently be in idle state
-        if last_state != 'idle':
-            return False
-
-        # Check if we've been idle long enough
-        idle_duration = current_time - state_enter_time
-
-        if idle_duration >= bored_timeout:
+        # If we were already bored, stay bored (until sleep timeout)
+        if last_state == 'bored':
             return True
+
+        # If we were idle, check if enough time has passed
+        if last_state == 'idle':
+            idle_duration = current_time - state_enter_time
+            return idle_duration >= bored_timeout
 
         return False
