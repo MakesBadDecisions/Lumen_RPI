@@ -59,3 +59,17 @@ lumen.cfg
 
 # OS-specific
 Thumbs.db
+
+# Claude AI assistant files
+.claude/
+CLAUDE.md
+
+# Documentation drafts and internal notes
+.github/COMPLETION_SUMMARY.md
+.github/MODULAR_IMPLEMENTATION_COMPLETE.md
+.github/PRE_FLIGHT_CHECKLIST.md
+
+# Test files
+test_import.py
+test_modular.py
+validate_config.py

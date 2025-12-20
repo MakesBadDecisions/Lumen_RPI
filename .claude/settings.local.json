@@ -3,7 +3,8 @@
     "allow": [
       "Bash(chmod:*)",
       "Bash(python3:*)",
-      "Bash(iconv:*)"
+      "Bash(iconv:*)",
+      "Bash(grep:*)"
     ]
   }
 }
