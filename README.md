@@ -25,6 +25,7 @@ Smart LED effects that respond to your printer's state in real-time. No macros, 
 cd ~
 git clone https://github.com/MakesBadDecisions/Lumen_RPI.git lumen
 cd lumen
+chmod +x install.sh
 ./install.sh
 ```
 
@@ -304,6 +305,12 @@ debug: console    # Logs to Mainsail console + journalctl
 ```
 
 ### Common Issues
+
+**"The value 'X' is not valid for LED" errors in Mainsail:**
+- LUMEN config references hardware that doesn't exist in printer.cfg
+- Solution: Comment out or delete the LED groups you don't have
+- Example: If you don't have `[neopixel toolhead_leds]` in printer.cfg, comment out any `lumen_group` sections using `neopixel: toolhead_leds`
+- Hot reload after fixing: `curl -X POST "http://localhost:7125/server/lumen/reload"`
 
 **LEDs don't light up:**
 1. Check GPIO pin number (valid: 12, 13, 18, 19)

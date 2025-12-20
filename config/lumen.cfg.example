@@ -142,35 +142,39 @@ on_sleep: off
 ##                                                                 ##
 ##  Note: Effects are slower during prints due to G-code queue.    ##
 ##                                                                 ##
+##  IMPORTANT: Uncomment these sections only if you have           ##
+##  [neopixel toolhead_leds] defined in printer.cfg!               ##
+##                                                                 ##
 #####################################################################
 
-[lumen_group toolhead_emblem]
-driver: klipper            # Uses Klipper's SET_LED command
-neopixel: toolhead_leds    # Must match [neopixel XXX] in printer.cfg
-index_start: 1
-index_end: 1
-direction: standard
-on_idle: pulse cobalt
-on_heating: solid cobalt
-on_printing: solid cobalt
-on_cooldown: pulse cobalt
-on_error: heartbeat red
-on_bored: disco
-on_sleep: off
+# Example Klipper driver groups (uncomment to use):
+# [lumen_group toolhead_emblem]
+# driver: klipper            # Uses Klipper's SET_LED command
+# neopixel: toolhead_leds    # Must match [neopixel XXX] in printer.cfg
+# index_start: 1
+# index_end: 1
+# direction: standard
+# on_idle: pulse cobalt
+# on_heating: solid cobalt
+# on_printing: solid cobalt
+# on_cooldown: pulse cobalt
+# on_error: heartbeat red
+# on_bored: disco
+# on_sleep: off
 
-[lumen_group toolhead_worklights]
-driver: klipper
-neopixel: toolhead_leds    # Same neopixel, different LED range
-index_start: 2
-index_end: 3
-direction: standard
-on_idle: off
-on_heating: solid orange
-on_printing: solid white
-on_cooldown: pulse ice
-on_error: heartbeat red
-on_bored: disco
-on_sleep: off
+# [lumen_group toolhead_worklights]
+# driver: klipper
+# neopixel: toolhead_leds    # Same neopixel, different LED range
+# index_start: 2
+# index_end: 3
+# direction: standard
+# on_idle: off
+# on_heating: solid orange
+# on_printing: solid white
+# on_cooldown: pulse ice
+# on_error: heartbeat red
+# on_bored: disco
+# on_sleep: off
 
 
 #####################################################################
