@@ -1,0 +1,234 @@
+#####################################################################
+##                    LUMEN Configuration
+##
+##  LED control for Klipper printers via Moonraker component.
+##  
+##  This file is read by the LUMEN Moonraker component, NOT Klipper.
+##  After changes, restart Moonraker: sudo systemctl restart moonraker
+##  Or use hot reload: curl -X POST http://localhost:7125/server/lumen/reload
+##
+##  Hardware definitions ([neopixel], [output_pin]) go in printer.cfg
+##  or the appropriate board config (ebb42.cfg, etc.)
+#####################################################################
+
+
+#####################################################################
+##                                                                 ##
+##                    GLOBAL SETTINGS                              ##
+##                                                                 ##
+#####################################################################
+
+[lumen_settings]
+max_brightness: 0.4        # Global brightness cap (0.0-1.0)
+temp_floor: 25             # Ambient temp baseline (°C)
+bored_timeout: 30          # Seconds idle before "bored"
+sleep_timeout: 60          # Seconds bored before "sleep"
+# Klipper driver (SET_LED) - affects G-code queue
+update_rate: 0.1           # Seconds between effect updates (10 Hz)
+update_rate_printing: 5.0  # Slower during prints (Klipper queue busy)
+# GPIO driver (rpi_ws281x) - Pi CPU only, no Klipper impact
+gpio_fps: 60               # Frames per second (60 = smooth, 30 = Pi Zero safe)
+
+
+#####################################################################
+##                                                                 ##
+##                    EFFECT SETTINGS                              ##
+##                    (Tune how effects behave)                    ##
+##                                                                 ##
+#####################################################################
+
+[lumen_effect pulse]
+speed: 1.0                 # Cycles per second (1.0 = 1 sec breathe, 0.5 = 2 sec)
+min_brightness: 0.2        # Dimmest point (0.0-1.0)
+max_brightness: 0.8        # Brightest point (0.0-1.0)
+
+[lumen_effect heartbeat]
+speed: 1.2                 # Beats per second (1.2 = 72 BPM, resting heart rate)
+min_brightness: 0.1
+max_brightness: 1.0
+
+[lumen_effect disco]
+speed: 3.0                 # Color changes per second (higher = more chaotic)
+min_sparkle: 1             # Minimum LEDs to light per update
+max_sparkle: 6             # Maximum LEDs to light per update
+max_brightness: 0.9
+
+[lumen_effect thermal]
+temp_source: extruder      # extruder | bed | chamber
+start_color: ice           # Cold color (at temp_floor)
+end_color: lava            # Hot color (at target temp)
+gradient_curve: 2.0        # 1.0=linear, >1=sharp at end, <1=sharp at start
+
+[lumen_effect progress]
+start_color: steel         # Color at 0% progress
+end_color: matrix          # Color at 100% progress
+gradient_curve: 1.5        # Slightly sharper at end
+
+
+#####################################################################
+##                                                                 ##
+##                    LED GROUPS - PROXY DRIVER                    ##
+##                    (RPi GPIO via ws281x proxy)                  ##
+##                                                                 ##
+##  Use this driver for WS2812B/NeoPixel strips connected directly ##
+##  to Raspberry Pi GPIO pins. Requires ws281x-proxy service.      ##
+##                                                                 ##
+##  Supported GPIO pins: 18 (PWM0), 13 (PWM1), 12 (PWM0), 19 (PWM1)##
+##                                                                 ##
+#####################################################################
+
+[lumen_group right]
+driver: proxy              # Uses ws281x-proxy for GPIO access
+gpio_pin: 18               # GPIO pin number (18 is most common)
+proxy_host: 127.0.0.1      # Proxy server address (localhost)
+proxy_port: 3769           # Proxy server port
+index_start: 1             # First LED in this group (1-indexed)
+index_end: 18              # Last LED in this group
+color_order: GRB           # Color order: RGB, GRB (most common), BRG, BGR, RBG, GBR
+direction: reverse         # standard | reverse (LED addressing direction)
+# State-based effects:
+on_idle: solid white
+on_heating: thermal bed ice lava 2.0     # Inline: temp_source start end curve
+on_printing: solid white
+on_cooldown: thermal bed lava ice 2.0
+on_error: heartbeat red
+on_bored: disco
+on_sleep: off
+
+
+[lumen_group left]
+driver: proxy
+gpio_pin: 18               # Same pin as 'right' - different LED range
+proxy_host: 127.0.0.1
+proxy_port: 3769
+index_start: 19
+index_end: 36
+color_order: GRB
+direction: reverse
+on_idle: solid white
+on_heating: thermal extruder ice fire 2.0
+on_printing: solid white
+on_cooldown: thermal extruder lava ice 2.0
+on_error: heartbeat red
+on_bored: disco
+on_sleep: off
+
+
+[lumen_group center]
+driver: proxy
+gpio_pin: 18
+proxy_host: 127.0.0.1
+proxy_port: 3769
+index_start: 37
+index_end: 53
+color_order: GRB
+direction: reverse
+on_idle: solid white
+on_heating: pulse orange
+on_printing: progress steel matrix 1.5   # Inline: start end curve
+on_cooldown: heartbeat cobalt
+on_error: heartbeat red
+on_bored: disco
+on_sleep: off
+
+
+#####################################################################
+##                                                                 ##
+##                    LED GROUPS - KLIPPER DRIVER                  ##
+##                    (MCU-connected via SET_LED)                  ##
+##                                                                 ##
+##  Use this driver for LEDs defined in Klipper config as          ##
+##  [neopixel] or [led] sections. Works with all MCUs.             ##
+##                                                                 ##
+##  Note: Effects are slower during prints due to G-code queue.    ##
+##                                                                 ##
+#####################################################################
+
+[lumen_group toolhead_emblem]
+driver: klipper            # Uses Klipper's SET_LED command
+neopixel: toolhead_leds    # Must match [neopixel XXX] in printer.cfg
+index_start: 1
+index_end: 1
+direction: standard
+on_idle: pulse cobalt
+on_heating: solid cobalt
+on_printing: solid cobalt
+on_cooldown: pulse cobalt
+on_error: heartbeat red
+on_bored: disco
+on_sleep: off
+
+[lumen_group toolhead_worklights]
+driver: klipper
+neopixel: toolhead_leds    # Same neopixel, different LED range
+index_start: 2
+index_end: 3
+direction: standard
+on_idle: off
+on_heating: solid orange
+on_printing: solid white
+on_cooldown: pulse ice
+on_error: heartbeat red
+on_bored: disco
+on_sleep: off
+
+
+#####################################################################
+##                                                                 ##
+##                    LED GROUPS - PWM DRIVER                      ##
+##                    (Single-color via SET_PIN)                   ##
+##                                                                 ##
+##  Use this driver for single-color LED strips controlled via     ##
+##  PWM output pins defined in Klipper config.                     ##
+##                                                                 ##
+#####################################################################
+
+# Example PWM group (uncomment to use):
+# [lumen_group case_lights]
+# driver: pwm              # Uses Klipper's SET_PIN command
+# pin_name: case_light     # Must match [output_pin XXX] in printer.cfg
+# on_idle: solid white
+# on_heating: pulse white
+# on_printing: solid white
+# on_cooldown: pulse white
+# on_error: pulse white
+# on_bored: pulse white
+# on_sleep: off
+
+
+#####################################################################
+##                                                                 ##
+##                    QUICK REFERENCE                              ##
+##                                                                 ##
+#####################################################################
+##
+##  EFFECTS:
+##    solid <color>             - Static color
+##    pulse <color>             - Breathing/fade effect
+##    heartbeat <color>         - Pulsing like a heartbeat
+##    disco                     - Random sparkles
+##    thermal <src> <c1> <c2> <curve>  - Temperature gradient
+##    progress <c1> <c2> <curve>       - Print progress gradient
+##    off                       - LEDs off
+##
+##  COLORS (50+ named colors available):
+##    Use: curl http://localhost:7125/server/lumen/colors
+##    
+##    Common: white, black, red, green, blue, yellow, orange, purple
+##    Cool:   ice, cobalt, azure, teal, mint, cyan
+##    Warm:   lava, fire, gold, amber, coral, salmon
+##    Accent: matrix, neon_pink, neon_green, steel
+##
+##  COLOR ORDER (for proxy/gpio drivers):
+##    GRB  - Most WS2812B strips (default)
+##    RGB  - Some WS2811 strips
+##    BRG  - Some SK6812 strips
+##    BGR, RBG, GBR - Less common variants
+##
+##  API ENDPOINTS:
+##    GET  /server/lumen/status     - Current state and LED info
+##    GET  /server/lumen/colors     - List all named colors
+##    POST /server/lumen/reload     - Hot reload configuration
+##    POST /server/lumen/test_event?event=<state>  - Test a state
+##
+#####################################################################
