@@ -306,6 +306,10 @@ class Lumen:
                 self.led_groups[section_name] = {
                     "driver": data.get("driver", "klipper"),
                     "neopixel": data.get("neopixel"),
+                    "gpio_pin": int(data.get("gpio_pin", 18)) if "gpio_pin" in data else None,
+                    "proxy_host": data.get("proxy_host", "127.0.0.1"),
+                    "proxy_port": int(data.get("proxy_port", 3769)),
+                    "color_order": data.get("color_order", "GRB"),
                     "index_start": int(data.get("index_start", 1)),
                     "index_end": int(data.get("index_end", 1)),
                     "pin_name": data.get("pin_name"),

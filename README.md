@@ -318,6 +318,14 @@ debug: console    # Logs to Mainsail console + journalctl
 3. Test proxy: `curl http://127.0.0.1:3769/status`
 4. Check color_order (try GRB or RGB)
 
+**GPIO 19 initialization fails:**
+- Error: "Gpio 19 is illegal for LED channel 0" or "RuntimeError: ws2811_init failed with code -11"
+- Cause: GPIO 19 uses PWM1 hardware which conflicts with audio output
+- Check if audio enabled: `grep -i audio /boot/config.txt`
+- Solution 1: Disable audio in `/boot/config.txt` (change `dtparam=audio=on` to `dtparam=audio=off`), then reboot
+- Solution 2: Use GPIO 18 instead (PWM0, no audio conflict)
+- Recommended: Use GPIO 18 unless you specifically need GPIO 19
+
 **Wrong colors:**
 Change `color_order` in lumen.cfg:
 ```ini
