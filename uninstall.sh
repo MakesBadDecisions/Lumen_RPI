@@ -329,16 +329,39 @@ remove_moonraker_conf() {
     fi
 }
 
+remove_lumen_directory() {
+    print_section "LUMEN Repository Cleanup"
+
+    local LUMEN_DIR="${HOME}/lumen"
+
+    if [ -d "$LUMEN_DIR" ]; then
+        print_warning "Found LUMEN repository at: $LUMEN_DIR"
+        echo ""
+        echo "This directory contains the source code, installer, and documentation."
+        echo "Removing it will complete the uninstallation."
+        echo ""
+
+        if prompt_yes_no "Remove ~/lumen directory completely?" "y"; then
+            rm -rf "$LUMEN_DIR"
+            print_success "LUMEN repository removed"
+        else
+            print_info "Keeping LUMEN repository at $LUMEN_DIR"
+            echo ""
+            echo "You can manually remove it later with:"
+            echo "   rm -rf ~/lumen"
+            echo ""
+        fi
+    else
+        print_info "LUMEN repository not found at $LUMEN_DIR"
+    fi
+}
+
 final_instructions() {
     print_section "Uninstallation Complete"
 
     echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗"
     echo "║                   LUMEN has been removed                      ║"
     echo -e "╚═══════════════════════════════════════════════════════════════╝${NC}"
-    echo ""
-
-    echo "Optionally remove the LUMEN repository:"
-    echo "   rm -rf ~/lumen"
     echo ""
 
     if prompt_yes_no "Restart Moonraker now?" "y"; then
@@ -372,6 +395,7 @@ main() {
     remove_configuration
     remove_moonraker_conf
     restore_pigpiod
+    remove_lumen_directory
     final_instructions
 }
 
