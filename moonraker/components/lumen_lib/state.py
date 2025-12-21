@@ -240,8 +240,9 @@ class StateDetector:
         for callback in self._listeners:
             try:
                 callback(new_event)
-            except Exception:
-                pass
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"State listener callback failed: {e}")
 
     @property
     def current_event(self) -> PrinterEvent:

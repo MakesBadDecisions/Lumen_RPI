@@ -15,11 +15,13 @@ Smart LED effects that respond to your printer's state in real-time. No macros, 
 ## Features
 
 - **7 Printer States** - Automatic detection: idle, heating, printing, cooldown, error, bored, sleep
-- **5 LED Effects** - solid, pulse, heartbeat, disco, thermal gradient, print progress bar
+- **7 LED Effects** - solid, pulse, heartbeat, disco, thermal gradient, print progress bar, off
 - **3 Driver Types** - GPIO (60fps smooth), Klipper SET_LED (MCU-attached), PWM (non-addressable)
+- **Modular Architecture** - Plugin-based effect and state systems for easy extension
 - **50+ Named Colors** - Aurora-compatible color palette
 - **Hot Reload** - Update config without restarting Moonraker
 - **Full API** - REST endpoints for status, testing, and control
+- **Production Ready** - Comprehensive code review completed, all critical bugs fixed
 
 ---
 

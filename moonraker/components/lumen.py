@@ -10,7 +10,7 @@ Installation:
 
 from __future__ import annotations
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"
 
 import asyncio
 import json
@@ -125,7 +125,22 @@ class Lumen:
         if self.config_warnings:
             for warn in self.config_warnings:
                 self._log_warning(warn)
-    
+
+    # ─────────────────────────────────────────────────────────────
+    # Task Exception Handling
+    # ─────────────────────────────────────────────────────────────
+
+    def _task_exception_handler(self, task: asyncio.Task) -> None:
+        """Handle exceptions from fire-and-forget tasks."""
+        try:
+            task.result()  # This will raise if task failed
+        except asyncio.CancelledError:
+            pass  # Expected during shutdown
+        except Exception as e:
+            self._log_error(f"Unhandled exception in background task: {e}")
+            import traceback
+            traceback.print_exc()
+
     # ─────────────────────────────────────────────────────────────
     # Logging Helpers (respects debug setting)
     # ─────────────────────────────────────────────────────────────
@@ -150,7 +165,8 @@ class Lumen:
 
         # Additionally send to Mainsail console if debug: console
         if to_console and self.debug_console:
-            asyncio.create_task(self._console_log(msg))
+            task = asyncio.create_task(self._console_log(msg))
+            task.add_done_callback(self._task_exception_handler)
     
     async def _console_log(self, msg: str) -> None:
         """Send message to Mainsail console via Klipper RESPOND."""
@@ -490,7 +506,8 @@ class Lumen:
         self.printer_state.update_from_status(status)
         new_event = self.state_detector.update(self.printer_state)
         if new_event:
-            asyncio.create_task(self._apply_event(new_event))
+            task = asyncio.create_task(self._apply_event(new_event))
+            task.add_done_callback(self._task_exception_handler)
     
     def _on_event_change(self, event: PrinterEvent) -> None:
         """Called when printer event changes."""
@@ -518,8 +535,8 @@ class Lumen:
                 continue
             
             await self._apply_effect(group_name, driver, mapping)
-        
-        self._ensure_animation_loop()
+
+        await self._ensure_animation_loop()
     
     async def _apply_effect(self, group_name: str, driver: LEDDriver, mapping: Dict[str, Any]) -> None:
         """Apply effect to a driver.
@@ -611,19 +628,31 @@ class Lumen:
     # Animation Loop
     # ─────────────────────────────────────────────────────────────
     
-    def _ensure_animation_loop(self) -> None:
+    async def _ensure_animation_loop(self) -> None:
         """Start/stop animation loop based on active effects."""
         # Check if any effect needs animation (not "off" or "solid")
         static_effects = {"off", "solid"}
         has_animated = any(s.effect not in static_effects for s in self.effect_states.values())
 
         if has_animated and not self._animation_running:
+            # Cancel any existing task before starting new one
+            if self._animation_task and not self._animation_task.done():
+                self._animation_task.cancel()
+                try:
+                    await self._animation_task
+                except asyncio.CancelledError:
+                    pass
+
             self._animation_running = True
             self._animation_task = asyncio.create_task(self._animation_loop())
         elif not has_animated and self._animation_running:
             self._animation_running = False
             if self._animation_task:
                 self._animation_task.cancel()
+                try:
+                    await self._animation_task
+                except asyncio.CancelledError:
+                    pass
     
     async def _animation_loop(self) -> None:
         """Background loop for animated effects."""
@@ -733,6 +762,8 @@ class Lumen:
                 # Use the smallest interval (highest update rate needed)
                 # This ensures fast drivers get their updates while slow drivers still work
                 interval = min(intervals) if intervals else self.update_rate
+                # Clamp to minimum 1ms (1000Hz max) to prevent busy-looping
+                interval = max(interval, 0.001)
                 await asyncio.sleep(interval)
         except asyncio.CancelledError:
             self._log_debug("Animation loop cancelled")
@@ -804,7 +835,11 @@ class Lumen:
         # Reload config
         self._load_config()
         self._create_drivers()
-        
+
+        # Clear caches to prevent memory leaks
+        self.effect_instances.clear()
+        self._last_thermal_log.clear()
+
         # Recreate effect states for new drivers
         self.effect_states.clear()
         for name in self.drivers:

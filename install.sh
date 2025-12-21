@@ -28,7 +28,7 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
 
-LUMEN_VERSION="0.1.0"
+LUMEN_VERSION="1.0.0"
 
 # Default paths (will be confirmed interactively)
 DEFAULT_USER=$(whoami)

@@ -30,8 +30,12 @@ except ImportError:
     Color = None
 
 # Shared pixel strips by GPIO pin (multiple groups can share one strip)
+# Thread-safe global state with locks (similar to ws281x_proxy.py)
+from threading import Lock
 _gpio_strips: Dict[int, "PixelStrip"] = {}
 _gpio_strip_sizes: Dict[int, int] = {}
+_gpio_strip_locks: Dict[int, Lock] = {}
+_gpio_strip_locks_lock = Lock()  # Protect lock creation
 
 
 class LEDDriver:
@@ -180,20 +184,63 @@ class GPIODriver(LEDDriver):
     
     def _init_strip(self) -> None:
         """Initialize or get shared PixelStrip for this GPIO pin."""
-        global _gpio_strips, _gpio_strip_sizes
+        global _gpio_strips, _gpio_strip_sizes, _gpio_strip_locks, _gpio_strip_locks_lock
 
-        if self.gpio_pin in _gpio_strips:
-            # Strip already exists - check if we need more LEDs
-            current_size = _gpio_strip_sizes[self.gpio_pin]
-            if self.index_end > current_size:
-                # Need to recreate strip with more LEDs
-                _logger.info(f"[LUMEN] Expanding GPIO {self.gpio_pin} strip from {current_size} to {self.index_end} LEDs")
-                old_strip = _gpio_strips[self.gpio_pin]
+        # Ensure per-pin lock exists (thread-safe lock creation)
+        with _gpio_strip_locks_lock:
+            if self.gpio_pin not in _gpio_strip_locks:
+                _gpio_strip_locks[self.gpio_pin] = Lock()
+
+        # All strip operations protected by pin-specific lock
+        with _gpio_strip_locks[self.gpio_pin]:
+            if self.gpio_pin in _gpio_strips:
+                # Strip already exists - check if we need more LEDs
+                current_size = _gpio_strip_sizes[self.gpio_pin]
+                if self.index_end > current_size:
+                    # Need to recreate strip with more LEDs
+                    _logger.info(f"[LUMEN] Expanding GPIO {self.gpio_pin} strip from {current_size} to {self.index_end} LEDs")
+                    old_strip = _gpio_strips[self.gpio_pin]
+
+                    try:
+                        # Create new strip with expanded size
+                        new_strip = PixelStrip(
+                            self.index_end,
+                            self.gpio_pin,
+                            self.LED_FREQ_HZ,
+                            self.LED_DMA,
+                            self.LED_INVERT,
+                            self.LED_BRIGHTNESS,
+                            self.LED_CHANNEL
+                        )
+                        new_strip.begin()
+
+                        # Copy existing LED states from old strip
+                        for i in range(current_size):
+                            try:
+                                color = old_strip.getPixelColor(i)
+                                new_strip.setPixelColor(i, color)
+                            except Exception:
+                                pass  # Ignore errors copying individual pixels
+
+                        # Replace with new expanded strip
+                        _gpio_strips[self.gpio_pin] = new_strip
+                        _gpio_strip_sizes[self.gpio_pin] = self.index_end
+                        self.strip = new_strip
+                        _logger.info(f"[LUMEN] Successfully expanded GPIO {self.gpio_pin} strip to {self.index_end} LEDs")
+                    except Exception as e:
+                        _logger.error(f"[LUMEN] Failed to expand GPIO strip: {e}")
+                        # Keep using old strip if expansion fails
+                        self.strip = old_strip
+                else:
+                    self.strip = _gpio_strips[self.gpio_pin]
+            else:
+                # Create new strip
+                total_leds = self.index_end  # index_end is the highest LED we need
+                _logger.info(f"[LUMEN] Creating GPIO {self.gpio_pin} strip with {total_leds} LEDs")
 
                 try:
-                    # Create new strip with expanded size
-                    new_strip = PixelStrip(
-                        self.index_end,
+                    self.strip = PixelStrip(
+                        total_leds,
                         self.gpio_pin,
                         self.LED_FREQ_HZ,
                         self.LED_DMA,
@@ -201,47 +248,11 @@ class GPIODriver(LEDDriver):
                         self.LED_BRIGHTNESS,
                         self.LED_CHANNEL
                     )
-                    new_strip.begin()
-
-                    # Copy existing LED states from old strip
-                    for i in range(current_size):
-                        try:
-                            color = old_strip.getPixelColor(i)
-                            new_strip.setPixelColor(i, color)
-                        except Exception:
-                            pass  # Ignore errors copying individual pixels
-
-                    # Replace with new expanded strip
-                    _gpio_strips[self.gpio_pin] = new_strip
-                    _gpio_strip_sizes[self.gpio_pin] = self.index_end
-                    self.strip = new_strip
-                    _logger.info(f"[LUMEN] Successfully expanded GPIO {self.gpio_pin} strip to {self.index_end} LEDs")
+                    self.strip.begin()
+                    _gpio_strips[self.gpio_pin] = self.strip
+                    _gpio_strip_sizes[self.gpio_pin] = total_leds
                 except Exception as e:
-                    _logger.error(f"[LUMEN] Failed to expand GPIO strip: {e}")
-                    # Keep using old strip if expansion fails
-                    self.strip = old_strip
-            else:
-                self.strip = _gpio_strips[self.gpio_pin]
-        else:
-            # Create new strip
-            total_leds = self.index_end  # index_end is the highest LED we need
-            _logger.info(f"[LUMEN] Creating GPIO {self.gpio_pin} strip with {total_leds} LEDs")
-
-            try:
-                self.strip = PixelStrip(
-                    total_leds,
-                    self.gpio_pin,
-                    self.LED_FREQ_HZ,
-                    self.LED_DMA,
-                    self.LED_INVERT,
-                    self.LED_BRIGHTNESS,
-                    self.LED_CHANNEL
-                )
-                self.strip.begin()
-                _gpio_strips[self.gpio_pin] = self.strip
-                _gpio_strip_sizes[self.gpio_pin] = total_leds
-            except Exception as e:
-                _logger.error(f"[LUMEN] Failed to initialize GPIO strip: {e}")
+                    _logger.error(f"[LUMEN] Failed to initialize GPIO strip: {e}")
                 self.strip = None
     
     def _rgb_to_color(self, r: float, g: float, b: float) -> int:
@@ -318,7 +329,8 @@ class ProxyDriver(LEDDriver):
                 with urllib.request.urlopen(req, timeout=2) as resp:
                     if resp.getcode() == 200:
                         return True
-            except Exception:
+            except Exception as e:
+                _logger.warning(f"[LUMEN] ProxyDriver failed to connect to {url}: {e}")
                 return False
             return False
 
