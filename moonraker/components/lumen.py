@@ -74,6 +74,7 @@ class Lumen:
         self.effect_settings: Dict[str, Dict[str, str]] = {}
         self.drivers: Dict[str, LEDDriver] = {}
         self.effect_states: Dict[str, EffectState] = {}
+        self.effect_instances: Dict[str, Any] = {}  # Cache effect instances (one per effect type)
         
         # Config validation warnings (collected during load)
         self.config_warnings: List[str] = []
@@ -581,6 +582,12 @@ class Lumen:
         # This prevents race condition with animation loop
         state = self.effect_states.get(group_name)
         if state:
+            # Clear old cached effect instance if effect type changed
+            old_effect = state.effect
+            if old_effect != effect:
+                old_cache_key = f"{group_name}:{old_effect}"
+                self.effect_instances.pop(old_cache_key, None)
+
             state.effect = effect
             state.base_color = (r, g, b)
             state.color = (r, g, b)
@@ -653,8 +660,13 @@ class Lumen:
                     intervals.append(driver_interval)
 
                     try:
-                        # Get effect instance
-                        effect = effect_class()
+                        # Get cached effect instance (one per group+effect combo)
+                        # IMPORTANT: Cache key must be unique per group to prevent state corruption
+                        cache_key = f"{group_name}:{state.effect}"
+                        if cache_key not in self.effect_instances:
+                            self.effect_instances[cache_key] = effect_class()
+                        effect = self.effect_instances[cache_key]
+
                         led_count = driver.led_count if hasattr(driver, 'led_count') else 1
 
                         # Build state data for effects that need it
