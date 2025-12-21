@@ -390,6 +390,19 @@ install_systemd_module() {
     if "${MOONRAKER_VENV}/bin/python" -c "import systemd.daemon" 2>/dev/null; then
         print_success "systemd module already installed"
     else
+        # Check if system libraries are installed
+        if ! pkg-config --exists libsystemd 2>/dev/null; then
+            print_info "Installing system dependencies for systemd module..."
+            sudo apt-get update -qq
+            sudo apt-get install -y libsystemd-dev pkg-config
+
+            if ! pkg-config --exists libsystemd 2>/dev/null; then
+                print_warning "Failed to install libsystemd-dev"
+                print_info "Proxy will work but without watchdog protection"
+                return
+            fi
+        fi
+
         echo "Installing systemd module..."
         "${MOONRAKER_VENV}/bin/pip" install systemd-python
 
