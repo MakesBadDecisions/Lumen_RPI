@@ -253,7 +253,7 @@ class Lumen:
     def _validate_config(self) -> None:
         """Validate configuration and collect warnings."""
         available_colors = list_colors()
-        valid_effects = {"solid", "pulse", "heartbeat", "disco", "thermal", "progress", "off"}
+        valid_effects = set(EFFECT_REGISTRY.keys())
         valid_events = {"idle", "heating", "printing", "cooldown", "error", "bored", "sleep"}
 
         # Effects that require addressable LEDs (not compatible with PWM driver)
