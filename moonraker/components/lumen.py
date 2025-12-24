@@ -778,7 +778,16 @@ class Lumen:
 
             # Check if group has reverse direction
             group_cfg = self.led_groups.get(group_name, {})
-            reversed_dir = group_cfg.get("direction", "standard") == "reverse"
+            direction = group_cfg.get("direction", "standard")
+            reversed_dir = direction == "reverse"
+
+            self._log_debug(
+                f"Chase group {group_name}: chase_num={state.chase_group_num}, "
+                f"direction={direction}, led_count={led_count}, "
+                f"index_start={group_cfg.get('index_start')}, "
+                f"index_end={group_cfg.get('index_end')}, "
+                f"circular_pos={start_index}-{end_index}"
+            )
 
             group_ranges.append((group_name, start_index, end_index, reversed_dir))
             total_leds += led_count
@@ -835,11 +844,12 @@ class Lumen:
             # Extract colors for this group
             group_colors = circular_colors[start:end]
 
-            # IMPORTANT: For multi-group chase, direction:reverse has already been
-            # accounted for in the circular array construction. The circular array
-            # represents PHYSICAL positions, so we do NOT reverse here.
-            # Single-group effects reverse their output, but multi-group chase is different -
-            # the circular array is already in physical order.
+            # For direction:reverse, we need to reverse the color array
+            # because the driver sends colors in electrical order, but
+            # the LEDs are physically wired backwards
+            if reversed_dir:
+                group_colors = list(reversed(group_colors))
+                self._log_debug(f"Reversing colors for {group_name} (direction=reverse)")
 
             # Apply to driver
             try:
