@@ -835,9 +835,11 @@ class Lumen:
             # Extract colors for this group
             group_colors = circular_colors[start:end]
 
-            # Reverse if needed
-            if reversed_dir:
-                group_colors = list(reversed(group_colors))
+            # IMPORTANT: For multi-group chase, direction:reverse has already been
+            # accounted for in the circular array construction. The circular array
+            # represents PHYSICAL positions, so we do NOT reverse here.
+            # Single-group effects reverse their output, but multi-group chase is different -
+            # the circular array is already in physical order.
 
             # Apply to driver
             try:
