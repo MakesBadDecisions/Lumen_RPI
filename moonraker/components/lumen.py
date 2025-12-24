@@ -894,6 +894,12 @@ class Lumen:
                 if chase_groups:
                     coordinated_groups = await self._render_multi_group_chase(chase_groups, now, is_printing)
 
+                    # Add intervals for coordinated chase groups
+                    for group_name in coordinated_groups:
+                        driver = self.drivers.get(group_name)
+                        if driver and isinstance(driver, (GPIODriver, ProxyDriver)):
+                            intervals.append(1.0 / self.gpio_fps)
+
                 for group_name, state in self.effect_states.items():
                     # Skip groups that are part of multi-group chase coordination
                     if group_name in coordinated_groups:
