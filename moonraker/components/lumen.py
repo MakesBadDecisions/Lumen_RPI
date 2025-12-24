@@ -837,6 +837,11 @@ class Lumen:
                 interval = min(intervals) if intervals else self.update_rate
                 # Clamp to minimum 1ms (1000Hz max) to prevent busy-looping
                 interval = max(interval, 0.001)
+
+                # Debug: Log intervals during printing
+                if is_printing and intervals:
+                    self._log_debug(f"Animation intervals: {intervals}, using min={interval:.4f}s ({1.0/interval:.1f} FPS)")
+
                 await asyncio.sleep(interval)
         except asyncio.CancelledError:
             self._log_debug("Animation loop cancelled")
