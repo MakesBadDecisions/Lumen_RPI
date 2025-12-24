@@ -467,7 +467,7 @@ class Lumen:
                 "heater_bed": ["temperature", "target"],
                 "extruder": ["temperature", "target"],
                 "idle_timeout": ["state"],
-                "motion_report": ["live_position"],
+                "toolhead": ["position"],
             })
             
             # Query current state (subscription only gives deltas)
@@ -478,7 +478,7 @@ class Lumen:
                 "heater_bed": ["temperature", "target"],
                 "extruder": ["temperature", "target"],
                 "idle_timeout": ["state"],
-                "motion_report": ["live_position"],
+                "toolhead": ["position"],
             })
             if result:
                 self.printer_state.update_from_status(result)
