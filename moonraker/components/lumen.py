@@ -749,12 +749,18 @@ class Lumen:
         """
         coordinated = set()
 
-        # Build circular LED array from numbered groups in order
-        sorted_nums = sorted(chase_groups.keys())
-        circular_groups = []
-        for num in sorted_nums:
-            for group_name in chase_groups[num]:
-                circular_groups.append(group_name)
+        # Build circular LED array in PHYSICAL order (by electrical index, not chase number)
+        # Get all chase groups with their electrical indices
+        groups_with_indices = []
+        for chase_num, group_names in chase_groups.items():
+            for group_name in group_names:
+                group_cfg = self.led_groups.get(group_name, {})
+                electrical_start = int(group_cfg.get('index_start', 1))
+                groups_with_indices.append((electrical_start, group_name))
+
+        # Sort by electrical index to get physical ring order
+        groups_with_indices.sort(key=lambda x: x[0])
+        circular_groups = [name for _, name in groups_with_indices]
 
         if not circular_groups:
             return coordinated
