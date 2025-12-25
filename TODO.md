@@ -160,7 +160,7 @@ Active development tasks and future enhancements for LUMEN.
 - [ ] **Macro integration** - LUMEN_SET_RELOAD reload lumen after a .cfg change
 
 ### Debugging Tools
-- [ ] **Effect preview mode** - Test effects without changing hardware
+- [ ] **Effect/state testing mode** - Test effects/states using simple macros. Macro to start testing, macros to change to next state or back a state, macros to change to next effect or back an effect. A macro to restart lumen to go back to normal Those 6 macros should make testing easier. 
 - [ ] **FPS counter** - Report actual achieved frame rate
 - [ ] **Performance profiling** - Identify slow effects or bottlenecks
 
@@ -193,8 +193,6 @@ Active development tasks and future enhancements for LUMEN.
 - [ ] Add mypy/flake8 to CI/CD
 
 ### Documentation
-- [ ] Video tutorial for installation
-- [ ] GIF demonstrations of each effect
 - [ ] Troubleshooting flow chart
 
 ---

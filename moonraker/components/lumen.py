@@ -10,7 +10,7 @@ Installation:
 
 from __future__ import annotations
 
-__version__ = "1.4.0"
+__version__ = "1.4.1"
 
 import asyncio
 import logging
@@ -588,6 +588,10 @@ class Lumen:
     async def _on_gcode_response(self, response: str) -> None:
         """Handle G-code responses to detect macro execution (v1.2.0)."""
         if not self.klippy_ready:
+            return
+
+        # v1.4.1: CRITICAL - Ignore our own LUMEN messages to prevent infinite loop
+        if response.startswith("LUMEN") or response.startswith("// LUMEN"):
             return
 
         # Convert response to uppercase for case-insensitive matching

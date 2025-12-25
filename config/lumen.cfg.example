@@ -19,7 +19,7 @@
 #####################################################################
 
 [lumen_settings]
-max_brightness: 0.4        # Global brightness cap (0.0-1.0)
+max_brightness: 0.6        # Global brightness cap (0.0-1.0)
 temp_floor: 25             # Ambient temp baseline (°C)
 bored_timeout: 30          # Seconds idle before "bored"
 sleep_timeout: 60          # Seconds bored before "sleep"
@@ -28,16 +28,16 @@ update_rate: 0.1           # Seconds between effect updates (10 Hz)
 update_rate_printing: 5.0  # Slower during prints (Klipper queue busy)
 # GPIO driver (rpi_ws281x) - Pi CPU only, no Klipper impact
 gpio_fps: 60               # Frames per second (60 = smooth, 30 = Pi Zero safe)
-# Bed dimensions for KITT tracking mode
+# Bed dimensions for tracking modes
 bed_x_min: 0               # Minimum X position (mm)
-bed_x_max: 300             # Maximum X position (mm)
+bed_x_max: 350             # Maximum X position (mm)
 bed_y_min: 0               # Minimum Y position (mm)
-bed_y_max: 300             # Maximum Y position (mm)
+bed_y_max: 350             # Maximum Y position (mm)
 # Macro tracking (v1.2.0) - Comma-separated macro names to trigger states
 # Customize these to match your printer's macros
 macro_homing: G28
 macro_meshing: BED_MESH_CALIBRATE
-macro_leveling: QUAD_GANTRY_LEVEL, Z_TILT_ADJUST
+macro_leveling: BED_SCREWS_ADJUST
 macro_probing: PROBE_CALIBRATE
 macro_paused: PAUSE
 macro_cancelled: CANCEL_PRINT
@@ -55,18 +55,18 @@ macro_filament: M600, FILAMENT_RUNOUT, LOAD_FILAMENT, UNLOAD_FILAMENT
 [lumen_effect pulse]
 speed: 1.0                 # Cycles per second (1.0 = 1 sec breathe, 0.5 = 2 sec)
 min_brightness: 0.2        # Dimmest point (0.0-1.0)
-max_brightness: 0.8        # Brightest point (0.0-1.0)
+max_brightness: 0.6        # Brightest point (0.0-1.0)
 
 [lumen_effect heartbeat]
 speed: 1.2                 # Beats per second (1.2 = 72 BPM, resting heart rate)
 min_brightness: 0.1
-max_brightness: 1.0
+max_brightness: 0.6
 
 [lumen_effect disco]
 speed: 3.0                 # Color changes per second (higher = more chaotic)
 min_sparkle: 1             # Minimum LEDs to light per update
 max_sparkle: 6             # Maximum LEDs to light per update
-max_brightness: 0.9
+max_brightness: 0.6
 
 [lumen_effect thermal]
 temp_source: extruder      # extruder | bed | chamber (v1.3.0: chamber requires [temperature_sensor chamber_temp] in Klipper)
@@ -82,17 +82,17 @@ gradient_curve: 1.5        # Slightly sharper at end
 [lumen_effect rainbow]
 speed: 0.5                 # Cycles per second (0.5 = 2 seconds per full rainbow)
 rainbow_spread: 1.0        # How much rainbow spreads across strip (0.0-1.0)
-max_brightness: 0.9
+max_brightness: 0.6
 
 [lumen_effect fire]
 speed: 10.0                # Flicker updates per second (higher = more chaotic)
 min_brightness: 0.2        # Dimmest flame
-max_brightness: 1.0        # Brightest flame
+max_brightness: 0.6       # Brightest flame
 fire_cooling: 0.3          # Cooling rate (0.0-1.0, higher = more chaotic)
 
 [lumen_effect comet]
 speed: 10.0                # Movement speed (LEDs per second)
-max_brightness: 1.0        # Brightness of comet head
+max_brightness: 0.6        # Brightness of comet head
 comet_tail_length: 10      # Length of trailing tail (in LEDs)
 comet_fade_rate: 0.5       # How quickly tail fades (0.0-1.0)
 
@@ -103,15 +103,15 @@ chase_color_1: red         # First segment color
 chase_color_2: blue        # Second segment color
 chase_offset_base: 0.5     # Base distance between segments (0.0-1.0)
 chase_offset_variation: 0.1 # How much offset varies dynamically
-max_brightness: 1.0
+max_brightness: 0.6
 
 [lumen_effect kitt]
 speed: 1.0                 # Bounce speed (sweeps per second)
 base_color: red            # Scanner color (classic red!)
-kitt_eye_size: 3           # LEDs in bright center eye
-kitt_tail_length: 8        # Fading LEDs on each side
+kitt_eye_size: 2           # LEDs in bright center eye
+kitt_tail_length: 2        # Fading LEDs on each side
 kitt_tracking_axis: none   # "none" | "x" | "y" (for bed mesh tracking)
-max_brightness: 1.0
+max_brightness: 0.6
 
 
 # #####################################################################
@@ -137,7 +137,7 @@ max_brightness: 1.0
 # index_end: 10
 # color_order: GRB
 # direction: standard
-# on_idle: solid white
+# on_idle: kitt cobalt
 # on_heating: thermal
 # on_printing: progress steel matrix 1.5   # Inline: start end curve
 # on_cooldown: heartbeat cobalt
