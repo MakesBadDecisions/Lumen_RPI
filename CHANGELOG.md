@@ -27,7 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Impact**: Eliminated timeout spam in logs, LEDs now respond correctly to macro states on GPIO-attached strips
 
 ### ✨ New Features
-- **Macro timeout**: 30-second timeout prevents stuck macro states (lumen.py:584-591)
+- **Macro completion detection**: Automatically detects macro completion messages (e.g., "// Mesh Bed Leveling Complete") and returns to normal state cycle (lumen.py:612-636)
+- **Macro timeout**: 120-second safety timeout prevents stuck macro states if completion message not detected (lumen.py:584-591)
 
 ### Changed
 - Version bumped from v1.4.0 to v1.4.1

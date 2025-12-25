@@ -581,10 +581,10 @@ class Lumen:
     async def _on_status_update(self, status: Dict[str, Any]) -> None:
         self.printer_state.update_from_status(status)
 
-        # v1.4.1: Check for macro timeout (macros should clear after 30 seconds)
+        # v1.4.1: Check for macro timeout (safety - clear after 2 minutes)
         if self._active_macro_state and self._macro_start_time > 0:
-            if time.time() - self._macro_start_time > 30.0:
-                self._log_debug(f"Macro timeout: {self._active_macro_state} (30s elapsed)")
+            if time.time() - self._macro_start_time > 120.0:
+                self._log_debug(f"Macro timeout: {self._active_macro_state} (120s elapsed)")
                 self._active_macro_state = None
                 self._macro_start_time = 0.0
                 self.printer_state.active_macro_state = None
@@ -608,6 +608,32 @@ class Lumen:
         # These flood the logs and don't contain macro names
         if response.startswith("// probe at") or response.startswith("probe at"):
             return
+
+        # v1.4.1: Detect macro completion messages and clear macro state
+        completion_markers = {
+            "meshing": ["// Mesh Bed Leveling Complete", "// mesh bed leveling complete"],
+            "homing": ["// Homing Complete", "// homing complete"],
+            "leveling": ["// Gantry Leveling Complete", "// gantry leveling complete",
+                        "// Z-Tilt Adjust Complete", "// z-tilt adjust complete"],
+            "probing": ["// Probe Calibration Complete", "// probe calibration complete"],
+        }
+
+        if self._active_macro_state:
+            markers = completion_markers.get(self._active_macro_state, [])
+            for marker in markers:
+                if marker.lower() in response.lower():
+                    self._log_debug(f"Macro completion detected: {self._active_macro_state}")
+                    self._active_macro_state = None
+                    self._macro_start_time = 0.0
+                    self.printer_state.active_macro_state = None
+                    self.printer_state.macro_start_time = 0.0
+
+                    # Force state detector to re-evaluate (return to normal state cycle)
+                    new_event = self.state_detector.update(self.printer_state)
+                    if new_event:
+                        task = asyncio.create_task(self._apply_event(new_event))
+                        task.add_done_callback(self._task_exception_handler)
+                    return
 
         # Convert response to uppercase for case-insensitive matching
         response_upper = response.upper()
