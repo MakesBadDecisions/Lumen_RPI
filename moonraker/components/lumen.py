@@ -1101,9 +1101,13 @@ class Lumen:
 
                     # v1.4.1: Skip Klipper drivers during macro states (G-code queue blocked, causes timeout spam)
                     from .lumen_lib.drivers import KlipperDriver
-                    if self._active_macro_state and isinstance(driver, KlipperDriver):
-                        self._log_debug(f"Skipping Klipper driver {group_name} during macro: {self._active_macro_state}")
-                        continue
+                    if self._active_macro_state:
+                        driver_type = type(driver).__name__
+                        is_klipper = isinstance(driver, KlipperDriver)
+                        self._log_debug(f"Group {group_name}: driver_type={driver_type}, is_klipper={is_klipper}, macro={self._active_macro_state}")
+                        if is_klipper:
+                            self._log_debug(f"Skipping Klipper driver {group_name} during macro: {self._active_macro_state}")
+                            continue
 
                     # v1.4.0: Use cached driver interval (avoids isinstance() check in hot path)
                     if group_name in self._driver_intervals:
