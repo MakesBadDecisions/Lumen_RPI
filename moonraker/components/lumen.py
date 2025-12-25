@@ -763,11 +763,20 @@ class Lumen:
                 index_end = int(group_cfg.get('index_end', 1))
                 direction = group_cfg.get('direction', 'standard')
 
-                # Build circular array with electrical indices in ASCENDING order
-                # The direction setting will be handled when sending colors to the driver
+                # Build circular array based on direction
+                # direction: standard → add electrical indices ascending (1,2,3,...,18)
+                # direction: reverse → add electrical indices descending (18,17,16,...,1)
                 led_count = index_end - index_start + 1
-                for electrical_idx in range(index_start, index_end + 1):
-                    circular_led_map.append((group_name, electrical_idx))
+
+                if direction == 'reverse':
+                    # Add in descending order
+                    for electrical_idx in range(index_end, index_start - 1, -1):
+                        circular_led_map.append((group_name, electrical_idx))
+                else:
+                    # Add in ascending order
+                    for electrical_idx in range(index_start, index_end + 1):
+                        circular_led_map.append((group_name, electrical_idx))
+
                 coordinated.add(group_name)
 
                 self._log_debug(
