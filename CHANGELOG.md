@@ -9,21 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.4.2] - 2025-12-26
 
-### 🐛 Critical Bug Fix - Macro Tracking Not Working
+### 🐛 Critical Bug Fix - Macro Tracking Event Handler Investigation
 
-#### Macro Tracking Subscription Missing
-- **Root cause**: `subscribe_gcode_output()` was never called, so G-code responses from Klipper were not being forwarded to LUMEN
+#### Macro Tracking Not Receiving G-code Responses
+- **Root cause**: `server:gcode_response` event handler registered at line 134, but callback never invoked
 - **Symptoms**:
   - No macro detection messages in logs
   - `_active_macro_state` never set
   - GPIO groups slow down during print start (use 5.0s interval instead of 60 FPS)
   - Klipper drivers timeout during macros even though skip logic exists
   - All v1.2.0 macro-triggered states (homing, meshing, leveling, probing, paused, cancelled, filament) non-functional
-- **Fix**: Added `await klippy_apis.subscribe_gcode_output()` in `_on_klippy_ready()` (lumen.py:529)
-- **Impact**: Macro tracking now works as designed - GPIO groups maintain 60 FPS during macros, Klipper drivers are properly skipped, macro states trigger configured effects
+- **Investigation**:
+  - Event handler registration appears correct (line 134)
+  - Attempted fix with `klippy_apis.subscribe_gcode_output()` - method doesn't exist, removed
+  - Added comprehensive debug logging to diagnose event flow
+- **Debug Changes**:
+  - Added event handler registration confirmation log (lumen.py:139)
+  - Added debug log at start of `_on_gcode_response()` to confirm invocation (lumen.py:613)
+  - Added klippy ready confirmation for macro tracking (lumen.py:533)
 
 ### Changed
 - Version bumped from v1.4.1 to v1.4.2
+- Removed non-existent `subscribe_gcode_output()` call
+- Added diagnostic logging for troubleshooting event flow
 
 ---
 

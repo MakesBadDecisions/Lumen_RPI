@@ -8,7 +8,7 @@ Smart LED effects that respond to your printer's state in real-time. No macros, 
 [![Version](https://img.shields.io/badge/version-v1.4.2-blue)]()
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> **v1.4.2 Release** - CRITICAL FIX: Macro tracking now actually works (missing gcode_output subscription)
+> **v1.4.2 Release** - INVESTIGATING: Macro tracking event handler not receiving gcode responses (debug logging added)
 
 ---
 
@@ -30,9 +30,11 @@ Smart LED effects that respond to your printer's state in real-time. No macros, 
 
 ## What's New in v1.4.2
 
-### CRITICAL Bug Fix
-- **Macro tracking subscription missing** - Added `subscribe_gcode_output()` call that was preventing ALL macro tracking from working since v1.2.0
-- **Impact**: GPIO groups now maintain 60 FPS during macros, all macro-triggered states now function, Klipper drivers properly skipped during macros
+### CRITICAL Bug Investigation
+- **Macro tracking event handler not receiving responses** - `server:gcode_response` event handler registered but never invoked
+- **Removed**: Non-existent `subscribe_gcode_output()` method call
+- **Added**: Comprehensive debug logging to diagnose why gcode response events aren't reaching the callback
+- **Status**: Under investigation - debug logging will help identify root cause
 
 ## What's New in v1.4.1
 

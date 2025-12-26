@@ -149,14 +149,15 @@ Active development tasks and future enhancements for LUMEN.
 
 ---
 
-## ✅ v1.4.2 - CRITICAL Macro Tracking Fix (December 2025)
+## 🔍 v1.4.2 - CRITICAL Macro Tracking Investigation (December 2025)
 
-### Critical Bug Fix
-- [x] **Macro tracking subscription missing** - Added `subscribe_gcode_output()` call (lumen.py:529)
-  - v1.2.0-v1.4.1 macro tracking was completely non-functional due to missing subscription
-  - GPIO groups now maintain 60 FPS during macros
-  - All macro-triggered states (homing, meshing, leveling, probing, paused, cancelled, filament) now work
-  - Klipper drivers properly skipped during macros
+### Critical Bug Investigation
+- [ ] **Macro tracking event handler not receiving responses** - Debugging why `_on_gcode_response()` never called
+  - v1.2.0-v1.4.1 macro tracking completely non-functional
+  - Event handler registered correctly at line 134: `server:gcode_response`
+  - Attempted fix with `subscribe_gcode_output()` - method doesn't exist, removed
+  - Added comprehensive debug logging (lines 139, 533, 613) to diagnose event flow
+  - Need to determine why Moonraker not invoking callback despite correct registration
 
 ---
 
@@ -279,5 +280,5 @@ Random ideas not yet prioritized:
 ---
 
 **Last Updated:** December 26, 2025
-**Current Version:** v1.4.2 (stable)
-**Status:** v1.4.2 Stable - CRITICAL FIX: Macro tracking now functional (missing subscribe_gcode_output() prevented all v1.2.0+ macro features from working)
+**Current Version:** v1.4.2 (investigation)
+**Status:** v1.4.2 Investigation - CRITICAL BUG: Macro tracking event handler not receiving gcode responses despite correct registration (debug logging added)
