@@ -314,22 +314,21 @@ class ProxyDriver(LEDDriver):
     def _proxy_url(self, path: str) -> str:
         return f"http://{self.proxy_host}:{self.proxy_port}{path}"
 
-    async def _post(self, path: str, payload: Dict[str, Any]) -> bool:
+    async def _post(self, path: str, payload: Dict[str, Any]) -> None:
+        """Fire-and-forget HTTP POST to proxy (v1.4.3: non-blocking for 60 FPS)."""
         url = self._proxy_url(path)
         data = json.dumps(payload).encode('utf-8')
 
         def _send():
             try:
                 req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-                with urllib.request.urlopen(req, timeout=2) as resp:
-                    if resp.getcode() == 200:
-                        return True
-            except Exception as e:
-                _logger.warning(f"[LUMEN] ProxyDriver failed to connect to {url}: {e}")
-                return False
-            return False
+                with urllib.request.urlopen(req, timeout=0.1) as resp:  # v1.4.3: Fast timeout, fire-and-forget
+                    pass  # Don't care about response
+            except Exception:
+                pass  # v1.4.3: Silent failure - proxy updates are best-effort at 60 FPS
 
-        return await asyncio.to_thread(_send)
+        # v1.4.3: Fire in background, don't await - animation loop must not block
+        asyncio.create_task(asyncio.to_thread(_send))
 
     async def set_color(self, r: float, g: float, b: float) -> None:
         payload = {
@@ -341,7 +340,7 @@ class ProxyDriver(LEDDriver):
             "b": b,
             "color_order": self.color_order,
         }
-        await self._post('/set_color', payload)
+        await self._post('/set_color', payload)  # Returns immediately now
 
     async def set_leds(self, colors: List[Optional[RGB]]) -> None:
         payload = {
@@ -350,7 +349,7 @@ class ProxyDriver(LEDDriver):
             "colors": colors,
             "color_order": self.color_order,
         }
-        await self._post('/set_leds', payload)
+        await self._post('/set_leds', payload)  # Returns immediately now
 
     async def set_off(self) -> None:
         await self.set_color(0.0, 0.0, 0.0)
