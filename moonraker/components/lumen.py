@@ -10,7 +10,7 @@ Installation:
 
 from __future__ import annotations
 
-__version__ = "1.4.5"
+__version__ = "1.4.6"
 
 import asyncio
 import logging
@@ -240,28 +240,36 @@ class Lumen:
         try:
             with open(path, 'r') as f:
                 lines = f.readlines()
-            
+
+            self._log_info(f"[DEBUG] Config file loaded: {len(lines)} lines")
+
             current_section = None
             current_section_line = 0
             current_data: Dict[str, str] = {}
-            
+
             for line_num, line in enumerate(lines, 1):
                 line = line.strip()
                 if not line or line.startswith('#'):
                     continue
-                
+
                 if line.startswith('[') and line.endswith(']'):
                     if current_section:
                         self._process_section(current_section, current_data, current_section_line)
                     current_section = line[1:-1]
                     current_section_line = line_num
                     current_data = {}
+                    self._log_info(f"[DEBUG] Found section: [{current_section}]")
                 elif ':' in line and current_section:
                     key, value = line.split(':', 1)
                     # Strip inline comments (# ...)
                     if '#' in value:
                         value = value.split('#', 1)[0]
-                    current_data[key.strip()] = value.strip()
+                    key_stripped = key.strip()
+                    value_stripped = value.strip()
+                    current_data[key_stripped] = value_stripped
+                    # v1.4.6 DEBUG: Log macro setting parsing
+                    if key_stripped.startswith("macro_"):
+                        self._log_info(f"[DEBUG] Parsed {key_stripped}: '{value_stripped}'")
             
             if current_section:
                 self._process_section(current_section, current_data, current_section_line)
@@ -349,8 +357,14 @@ class Lumen:
             parts = section.split(None, 1)
             section_type = parts[0]
             section_name = parts[1] if len(parts) > 1 else None
-            
+
             if section_type == "lumen_settings":
+                # v1.4.6 DEBUG: Log what keys are in the data dict
+                self._log_info(f"[DEBUG] Processing [lumen_settings] with {len(data)} keys: {list(data.keys())}")
+                if "macro_homing" in data:
+                    self._log_info(f"[DEBUG] macro_homing value: '{data['macro_homing']}'")
+                else:
+                    self._log_info(f"[DEBUG] macro_homing NOT FOUND in data dict")
                 self.temp_floor = float(data.get("temp_floor", self.temp_floor))
                 self.bored_timeout = float(data.get("bored_timeout", self.bored_timeout))
                 self.sleep_timeout = float(data.get("sleep_timeout", self.sleep_timeout))
@@ -619,9 +633,8 @@ class Lumen:
         if response.startswith("LUMEN") or response.startswith("// LUMEN"):
             return
 
-        # v1.4.2 DEBUG: Callback IS being invoked - confirmed by malformed command spam
-        # Disabled to prevent infinite loop from RESPOND commands being echoed back
-        # self._log_debug(f"[GCODE_RESPONSE_DEBUG] Received: {response[:100]}")
+        # v1.4.5 DEBUG: Enable logging to diagnose why macro detection not working
+        self._log_debug(f"[GCODE_RESPONSE_DEBUG] Received: {response[:100]}")
 
         # v1.4.1: Skip probe results and most comment lines (noise reduction)
         # These flood the logs and don't contain macro names

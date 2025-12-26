@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.6] - 2025-12-26 🔍 DIAGNOSTIC VERSION
+
+### 🐛 Investigating - Config Parser Not Loading Macro Settings
+
+#### Symptoms
+- v1.4.5 subscription fix is working (gcode output being received)
+- Config file has correct macro settings (verified via grep)
+- BUT API shows all macro settings as `None` in memory
+- Result: Macro detection still not working despite subscription being active
+
+#### Debug Logging Added
+- Config file reading: Log total lines loaded and each section found
+- Macro setting parsing: Log each `macro_*` key/value pair as it's parsed
+- Section processing: Log number of keys in data dict when processing `[lumen_settings]`
+- Macro presence check: Log whether `macro_homing` exists in data dict
+
+#### How to Use Diagnostic Version
+1. Update to v1.4.6: `git pull && sudo systemctl restart moonraker`
+2. Check logs: `journalctl -u moonraker -f | grep -i "DEBUG"`
+3. Look for:
+   - `[DEBUG] Config file loaded: X lines`
+   - `[DEBUG] Found section: [lumen_settings]`
+   - `[DEBUG] Parsed macro_homing: 'G28, HOMING_OVERRIDE'`
+   - `[DEBUG] Processing [lumen_settings] with X keys: [...]`
+   - `[DEBUG] macro_homing value: '...'` OR `[DEBUG] macro_homing NOT FOUND in data dict`
+
+---
+
 ## [1.4.5] - 2025-12-26 🔥 CRITICAL BUGFIX
 
 ### 🐛 Fixed - Macro Tracking Completely Non-Functional Since v1.2.0
