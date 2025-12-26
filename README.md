@@ -5,10 +5,10 @@
 Smart LED effects that respond to your printer's state in real-time. No macros, no delays, no `AURORA_WAKE` commands.
 
 [![Status](https://img.shields.io/badge/status-stable-brightgreen)]()
-[![Version](https://img.shields.io/badge/version-v1.4.2-blue)]()
+[![Version](https://img.shields.io/badge/version-v1.4.4-blue)]()
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> **v1.4.2 Release** - INVESTIGATING: Macro tracking event handler not receiving gcode responses (debug logging added)
+> **v1.4.4 Release** - Production-ready with effect-aware adaptive FPS for optimal performance
 
 ---
 
@@ -28,34 +28,22 @@ Smart LED effects that respond to your printer's state in real-time. No macros, 
 
 ---
 
-## What's New in v1.4.2
+## What's New in v1.4.4
 
-### CRITICAL Bug Investigation
-- **Macro tracking event handler not receiving responses** - `server:gcode_response` event handler registered but never invoked
-- **Removed**: Non-existent `subscribe_gcode_output()` method call
-- **Added**: Comprehensive debug logging to diagnose why gcode response events aren't reaching the callback
-- **Status**: Under investigation - debug logging will help identify root cause
+### Effect-Aware Adaptive FPS
+- **Intelligent FPS scaling** - Automatically adjusts update rates based on effect complexity
+  - Static effects (solid, off): 5 FPS - no animation needed
+  - Slow effects (pulse, heartbeat, thermal, progress): 20 FPS - smooth gradual changes
+  - Fast effects (disco, rainbow, fire, comet, chase, KITT): Full driver speed (30-40 FPS)
+- **Optimized resource usage** - Reduces unnecessary HTTP requests for static/slow effects
+- **Better performance** - Frees CPU/bandwidth for fast animations when needed
 
-## What's New in v1.4.1
-
-### Critical Bug Fixes - Macro Tracking
-- **Infinite loop console spam** - Fixed LUMEN console messages triggering infinite macro detection loops
-- **Malformed G-code debug messages** - Filtered probe result messages to eliminate "Malformed command" errors
-- **Klipper driver timeout spam** - Skip Klipper driver updates during macro states (G-code queue blocked)
-- **GPIO animation slowdown** - Maintains 60 FPS during macros by treating them as non-printing states
-- **PWM driver timeout spam** - Extended skip logic to include PWM drivers during macro execution
-- **Config reload issues** - Fixed interval cache rebuild and macro state clearing on hot reload
-- **Memory leak on reload** - Chase coordination cache now properly cleared during config reload
-
-### New Features
-- **Macro completion detection** - Automatically returns to normal state when macros complete
-- **Macro timeout safety** - 120-second timeout prevents stuck macro states
-- **Frame skip detection** - Warns when system falls behind target FPS due to overload
-
-### Code Quality Improvements
-- **Paused state consistency** - Now uses macro tracking only, like other states
-- **Color lookup cache** - Added LRU cache to `get_color()` for improved performance
-- **Clarified comments** - Improved comment accuracy regarding effect state updates
+### Production Ready
+- All 14 printer states working correctly (idle, heating, printing, cooldown, error, bored, sleep, homing, meshing, leveling, probing, paused, cancelled, filament)
+- All 12 LED effects rendering smoothly (solid, pulse, heartbeat, disco, rainbow, fire, comet, chase, KITT, thermal, progress, off)
+- Macro tracking fully functional with automatic completion detection
+- Multi-group coordination working perfectly (predator/prey chase behavior)
+- Hot reload, filament sensors, temperature sources all verified working
 
 See [CHANGELOG.md](CHANGELOG.md) for complete version history.
 

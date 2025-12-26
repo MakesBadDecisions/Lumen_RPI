@@ -180,15 +180,15 @@ Active development tasks and future enhancements for LUMEN.
 
 ---
 
-## 🔍 v1.4.2 - CRITICAL Macro Tracking Investigation (December 2025)
+## ✅ v1.4.2 - Macro Tracking Investigation RESOLVED (December 2025)
 
-### Critical Bug Investigation
-- [ ] **Macro tracking event handler not receiving responses** - Debugging why `_on_gcode_response()` never called
-  - v1.2.0-v1.4.1 macro tracking completely non-functional
-  - Event handler registered correctly at line 134: `server:gcode_response`
-  - Attempted fix with `subscribe_gcode_output()` - method doesn't exist, removed
-  - Added comprehensive debug logging (lines 139, 533, 613) to diagnose event flow
-  - Need to determine why Moonraker not invoking callback despite correct registration
+### Investigation Results
+- [x] **Macro tracking event handler working correctly** - v1.4.2 debug logging confirmed `_on_gcode_response()` IS being called
+  - Fresh install testing validated all macro-triggered states functional
+  - G28 (homing), BED_MESH_CALIBRATE (meshing), filament sensor events all detected correctly
+  - Event handler registration at line 134 working as designed
+  - v1.4.1 filters preventing infinite loops working perfectly
+  - Debug logging can be removed in future cleanup (no longer needed)
 
 ---
 
@@ -312,4 +312,4 @@ Random ideas not yet prioritized:
 
 **Last Updated:** December 26, 2025
 **Current Version:** v1.4.4 (effect-aware adaptive FPS)
-**Status:** v1.4.4 - Intelligent FPS scaling based on effect complexity. Static effects limited to 5 FPS, slow effects to 20 FPS, fast animations get full driver speed (30-40 FPS).
+**Status:** ✅ v1.4.4 PRODUCTION READY - All features tested and working. Intelligent FPS scaling achieving 30-40 FPS on fast animations. Ready for v1.5.0 development.
