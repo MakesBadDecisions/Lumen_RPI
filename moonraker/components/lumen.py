@@ -27,7 +27,7 @@ if str(_component_dir) not in sys.path:
 from lumen_lib import (
     RGB, get_color, list_colors,
     EffectState,
-    LEDDriver, KlipperDriver, PWMDriver, create_driver,
+    LEDDriver, KlipperDriver, PWMDriver, GPIODriver, ProxyDriver, create_driver,
     PrinterState, PrinterEvent, StateDetector,
 )
 from lumen_lib.effects import EFFECT_REGISTRY
@@ -491,8 +491,6 @@ class Lumen:
 
     def _cache_driver_intervals(self) -> None:
         """Cache driver update intervals to avoid isinstance() checks in animation loop (v1.4.0 optimization)."""
-        from .lumen_lib.drivers import GPIODriver, ProxyDriver
-
         # v1.4.2 DEBUG: Verify drivers dict state before loop
         self._log_info(f"_cache_driver_intervals called with {len(self.drivers)} drivers: {list(self.drivers.keys())}")
 
