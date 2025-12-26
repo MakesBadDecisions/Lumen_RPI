@@ -10,7 +10,7 @@ Installation:
 
 from __future__ import annotations
 
-__version__ = "1.4.1"
+__version__ = "1.4.2"
 
 import asyncio
 import logging
@@ -524,6 +524,9 @@ class Lumen:
                 "temperature_sensor chamber_temp": ["temperature"],
                 "filament_switch_sensor filament_sensor": ["filament_detected"],
             })
+
+            # v1.4.2: Subscribe to G-code responses for macro tracking (v1.2.0 feature)
+            await klippy_apis.subscribe_gcode_output()
 
             # Query current state (subscription only gives deltas)
             result = await klippy_apis.query_objects({

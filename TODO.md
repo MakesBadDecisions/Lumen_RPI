@@ -149,6 +149,17 @@ Active development tasks and future enhancements for LUMEN.
 
 ---
 
+## ✅ v1.4.2 - CRITICAL Macro Tracking Fix (December 2025)
+
+### Critical Bug Fix
+- [x] **Macro tracking subscription missing** - Added `subscribe_gcode_output()` call (lumen.py:529)
+  - v1.2.0-v1.4.1 macro tracking was completely non-functional due to missing subscription
+  - GPIO groups now maintain 60 FPS during macros
+  - All macro-triggered states (homing, meshing, leveling, probing, paused, cancelled, filament) now work
+  - Klipper drivers properly skipped during macros
+
+---
+
 ## ✅ v1.4.1 - Critical Macro Tracking Fixes (December 2025)
 
 ### Critical Bug Fixes
@@ -267,6 +278,6 @@ Random ideas not yet prioritized:
 
 ---
 
-**Last Updated:** December 25, 2025
-**Current Version:** v1.4.1 (stable)
-**Status:** v1.4.1 Stable - Production tested on Voron Trident | Fixed 7 critical macro tracking bugs (infinite loop spam, timeouts, GPIO slowdown, reload issues, memory leak), added macro completion detection, 120s timeout, frame skip detection, LRU color cache
+**Last Updated:** December 26, 2025
+**Current Version:** v1.4.2 (stable)
+**Status:** v1.4.2 Stable - CRITICAL FIX: Macro tracking now functional (missing subscribe_gcode_output() prevented all v1.2.0+ macro features from working)

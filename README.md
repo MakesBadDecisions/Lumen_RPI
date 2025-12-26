@@ -5,10 +5,10 @@
 Smart LED effects that respond to your printer's state in real-time. No macros, no delays, no `AURORA_WAKE` commands.
 
 [![Status](https://img.shields.io/badge/status-stable-brightgreen)]()
-[![Version](https://img.shields.io/badge/version-v1.4.1-blue)]()
+[![Version](https://img.shields.io/badge/version-v1.4.2-blue)]()
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> **v1.4.1 Release** - Fixed critical macro tracking bugs (infinite loop spam, Klipper driver timeout spam)
+> **v1.4.2 Release** - CRITICAL FIX: Macro tracking now actually works (missing gcode_output subscription)
 
 ---
 
@@ -27,6 +27,12 @@ Smart LED effects that respond to your printer's state in real-time. No macros, 
 - **Production Ready** - Comprehensive testing on Voron Trident with multi-group animations and optimized performance
 
 ---
+
+## What's New in v1.4.2
+
+### CRITICAL Bug Fix
+- **Macro tracking subscription missing** - Added `subscribe_gcode_output()` call that was preventing ALL macro tracking from working since v1.2.0
+- **Impact**: GPIO groups now maintain 60 FPS during macros, all macro-triggered states now function, Klipper drivers properly skipped during macros
 
 ## What's New in v1.4.1
 

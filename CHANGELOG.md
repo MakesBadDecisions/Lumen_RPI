@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.2] - 2025-12-26
+
+### 🐛 Critical Bug Fix - Macro Tracking Not Working
+
+#### Macro Tracking Subscription Missing
+- **Root cause**: `subscribe_gcode_output()` was never called, so G-code responses from Klipper were not being forwarded to LUMEN
+- **Symptoms**:
+  - No macro detection messages in logs
+  - `_active_macro_state` never set
+  - GPIO groups slow down during print start (use 5.0s interval instead of 60 FPS)
+  - Klipper drivers timeout during macros even though skip logic exists
+  - All v1.2.0 macro-triggered states (homing, meshing, leveling, probing, paused, cancelled, filament) non-functional
+- **Fix**: Added `await klippy_apis.subscribe_gcode_output()` in `_on_klippy_ready()` (lumen.py:529)
+- **Impact**: Macro tracking now works as designed - GPIO groups maintain 60 FPS during macros, Klipper drivers are properly skipped, macro states trigger configured effects
+
+### Changed
+- Version bumped from v1.4.1 to v1.4.2
+
+---
+
 ## [1.4.1] - 2025-12-25
 
 ### 🐛 Critical Bug Fixes - Macro Tracking
@@ -308,6 +328,7 @@ This is the first stable release. Pre-release development history available in c
 - 📝 Documentation
 - 🔧 Maintenance
 
+[1.4.2]: https://github.com/MakesBadDecisions/Lumen_RPI/releases/tag/v1.4.2
 [1.4.1]: https://github.com/MakesBadDecisions/Lumen_RPI/releases/tag/v1.4.1
 [1.4.0]: https://github.com/MakesBadDecisions/Lumen_RPI/releases/tag/v1.4.0
 [1.3.0]: https://github.com/MakesBadDecisions/Lumen_RPI/releases/tag/v1.3.0
