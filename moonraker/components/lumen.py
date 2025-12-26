@@ -385,6 +385,8 @@ class Lumen:
                 self.macro_paused = self._parse_macro_list(data.get("macro_paused", ""))
                 self.macro_cancelled = self._parse_macro_list(data.get("macro_cancelled", ""))
                 self.macro_filament = self._parse_macro_list(data.get("macro_filament", ""))
+                # v1.4.6 DEBUG: Verify parsed lists
+                self._log_info(f"[DEBUG] After parsing - macro_homing list: {self.macro_homing}")
             
             elif section_type == "lumen_effect" and section_name:
                 self.effect_settings[section_name] = data.copy()
