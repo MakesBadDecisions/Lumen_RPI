@@ -35,15 +35,15 @@ if grep -q "WS281X_QUIET" "$SERVICE_FILE" 2>/dev/null; then
 else
     echo "Adding quiet mode to service file..."
 
-    # Create a temporary file with the updated service
-    TMP_FILE=$(mktemp)
+    # Create a temporary file with the updated service (in /tmp with sudo)
+    TMP_FILE="/tmp/lumen_upgrade_service_$$"
 
     # Insert Environment line after User=root
     awk '/^User=root$/ {print; print "Environment=\"WS281X_QUIET=1\""; next}1' "$SERVICE_FILE" | sudo tee "$TMP_FILE" > /dev/null
 
     # Replace the service file
     sudo cp "$TMP_FILE" "$SERVICE_FILE"
-    rm "$TMP_FILE"
+    sudo rm "$TMP_FILE"
 
     echo "✓ Service file updated with quiet mode"
 fi
