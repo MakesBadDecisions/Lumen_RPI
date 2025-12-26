@@ -10,7 +10,7 @@ Installation:
 
 from __future__ import annotations
 
-__version__ = "1.4.2"
+__version__ = "1.4.3"
 
 import asyncio
 import logging
@@ -617,8 +617,9 @@ class Lumen:
         if response.startswith("LUMEN") or response.startswith("// LUMEN"):
             return
 
-        # v1.4.2 DEBUG: Confirm this callback is being invoked (MUST be after LUMEN filter!)
-        self._log_debug(f"[GCODE_RESPONSE_DEBUG] Received: {response[:100]}")
+        # v1.4.2 DEBUG: Callback IS being invoked - confirmed by malformed command spam
+        # Disabled to prevent infinite loop from RESPOND commands being echoed back
+        # self._log_debug(f"[GCODE_RESPONSE_DEBUG] Received: {response[:100]}")
 
         # v1.4.1: Skip probe results and most comment lines (noise reduction)
         # These flood the logs and don't contain macro names
@@ -997,8 +998,10 @@ class Lumen:
                 continue
 
             # v1.4.1: Skip Klipper/PWM drivers during macro states (G-code queue blocked)
-            if self._active_macro_state and isinstance(driver, (KlipperDriver, PWMDriver)):
-                continue
+            # v1.4.3: ALSO skip during normal printing - G-code queue is ALWAYS busy, not just in macros
+            if isinstance(driver, (KlipperDriver, PWMDriver)):
+                if self._active_macro_state or is_printing:
+                    continue
 
             group_cfg = self.led_groups.get(group_name, {})
             index_start = int(group_cfg.get('index_start', 1))
@@ -1119,8 +1122,10 @@ class Lumen:
                         continue
 
                     # v1.4.1: Skip Klipper/PWM drivers during macro states (G-code queue blocked, causes timeout spam)
-                    if self._active_macro_state and isinstance(driver, (KlipperDriver, PWMDriver)):
-                        continue
+                    # v1.4.3: ALSO skip during normal printing - G-code queue is ALWAYS busy, not just in macros
+                    if isinstance(driver, (KlipperDriver, PWMDriver)):
+                        if self._active_macro_state or is_printing:
+                            continue
 
                     # v1.4.0: Use cached driver interval (avoids isinstance() check in hot path)
                     if group_name in self._driver_intervals:
