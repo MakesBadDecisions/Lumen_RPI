@@ -10,7 +10,7 @@ Installation:
 
 from __future__ import annotations
 
-__version__ = "1.4.4"
+__version__ = "1.4.5"
 
 import asyncio
 import logging
@@ -138,8 +138,8 @@ class Lumen:
         self.server.register_event_handler("server:exit", self._on_server_shutdown)
         self.state_detector.add_listener(self._on_event_change)
 
-        # v1.4.2 DEBUG: Confirm event handler registration
-        self._log_info("Event handlers registered (including server:gcode_response for macro tracking)")
+        # v1.4.5: Event handler registration (gcode subscription happens in _on_klippy_ready)
+        self._log_info("Event handlers registered")
         
         # Register API endpoints
         self.server.register_endpoint("/server/lumen/status", ["GET"], self._handle_status)
@@ -529,9 +529,11 @@ class Lumen:
                 "filament_switch_sensor filament_sensor": ["filament_detected"],
             })
 
-            # v1.4.2: G-code response events are automatically provided by Moonraker
-            # via the "server:gcode_response" event handler registered in __init__
-            self._log_info("Klippy ready - macro tracking active via server:gcode_response events")
+            # v1.4.5: Subscribe to G-code output for macro tracking
+            # This tells Klippy to send gcode responses to the process_gcode_response
+            # method in klippy_connection, which then broadcasts them as server:gcode_response events
+            await klippy_apis.subscribe_gcode_output()
+            self._log_info("Klippy ready - subscribed to gcode output for macro tracking")
 
             # Query current state (subscription only gives deltas)
             result = await klippy_apis.query_objects({

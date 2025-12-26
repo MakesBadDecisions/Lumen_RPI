@@ -5,10 +5,10 @@
 Smart LED effects that respond to your printer's state in real-time. No macros, no delays, no `AURORA_WAKE` commands.
 
 [![Status](https://img.shields.io/badge/status-stable-brightgreen)]()
-[![Version](https://img.shields.io/badge/version-v1.4.4-blue)]()
+[![Version](https://img.shields.io/badge/version-v1.4.5-blue)]()
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> **v1.4.4 Release** - Production-ready with effect-aware adaptive FPS for optimal performance
+> **v1.4.5 Release** - CRITICAL BUGFIX: Macro tracking now functional for the first time since v1.2.0
 
 ---
 
@@ -28,9 +28,22 @@ Smart LED effects that respond to your printer's state in real-time. No macros, 
 
 ---
 
-## What's New in v1.4.4
+## What's New in v1.4.5
 
-### Effect-Aware Adaptive FPS
+### 🔥 CRITICAL BUGFIX - Macro Tracking Now Works!
+- **The Bug**: Macro tracking has been completely broken since v1.2.0 initial release
+- **The Cause**: Component registered `server:gcode_response` event handler but never called `subscribe_gcode_output()`
+- **The Fix**: Now properly subscribes to Klippy's gcode output stream during initialization
+- **Impact**: All 7 macro-triggered states now work for the first time ever:
+  - `on_homing` - Triggers during G28, HOMING_OVERRIDE
+  - `on_meshing` - Triggers during BED_MESH_CALIBRATE
+  - `on_leveling` - Triggers during Z_TILT_ADJUST, QUAD_GANTRY_LEVEL
+  - `on_probing` - Triggers during probe calibration macros
+  - `on_paused` - Triggers when print paused
+  - `on_cancelled` - Triggers when print cancelled
+  - `on_filament` - Triggers during filament change/runout/load/unload
+
+### Previous Release (v1.4.4) - Effect-Aware Adaptive FPS
 - **Intelligent FPS scaling** - Automatically adjusts update rates based on effect complexity
   - Static effects (solid, off): 5 FPS - no animation needed
   - Slow effects (pulse, heartbeat, thermal, progress): 20 FPS - smooth gradual changes

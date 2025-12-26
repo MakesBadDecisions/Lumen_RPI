@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.5] - 2025-12-26 🔥 CRITICAL BUGFIX
+
+### 🐛 Fixed - Macro Tracking Completely Non-Functional Since v1.2.0
+
+#### Root Cause Discovery
+- **Critical Bug**: Macro tracking has NEVER worked in production since initial release in v1.2.0
+- **Issue**: Component registered `server:gcode_response` event handler but never subscribed to Klippy's gcode output
+- **Evidence**:
+  - Zero "Macro detected: G28 → state: homing" messages in production logs
+  - State stayed "printing" during G28/BED_MESH_CALIBRATE/etc instead of transitioning to macro states
+  - KITT effect never ran on center during meshing despite config: `on_meshing: kitt cobalt`
+  - Thermal effects never ran during meshing/probing despite config
+  - All 7 macro-triggered states completely broken (homing, meshing, leveling, probing, paused, cancelled, filament)
+
+#### Technical Explanation
+Moonraker's gcode response flow:
+1. Klippy sends gcode responses to Moonraker's `klippy_connection` component
+2. `klippy_connection._process_gcode_response()` broadcasts them as `server:gcode_response` events
+3. **BUT** Klippy only sends responses if a component calls `klippy_apis.subscribe_gcode_output()`
+4. LUMEN registered the event handler but **never called subscribe_gcode_output()**
+5. Result: Klippy never sent any gcode output to Moonraker for LUMEN
+
+#### The Fix
+- **Added**: `await klippy_apis.subscribe_gcode_output()` call in `_on_klippy_ready()` (lumen.py:535)
+- **Changed**: Updated initialization log to clarify subscription happens during klippy_ready (lumen.py:141-142)
+- **Impact**: All 7 macro states now actually work for the first time ever
+
+### Changed
+- Version bumped from v1.4.4 to v1.4.5
+- Added Klippy gcode output subscription during component initialization
+
+---
+
 ## [1.4.4] - 2025-12-26 ✅ PRODUCTION READY
 
 ### ⚡ Performance Improvements - Effect-Aware Adaptive FPS

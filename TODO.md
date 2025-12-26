@@ -311,5 +311,5 @@ Random ideas not yet prioritized:
 ---
 
 **Last Updated:** December 26, 2025
-**Current Version:** v1.4.4 (effect-aware adaptive FPS)
-**Status:** ✅ v1.4.4 PRODUCTION READY - All features tested and working. Intelligent FPS scaling achieving 30-40 FPS on fast animations. Ready for v1.5.0 development.
+**Current Version:** v1.4.5 (macro tracking bugfix)
+**Status:** 🔥 v1.4.5 CRITICAL BUGFIX - Macro tracking now functional for first time since v1.2.0. Fixed missing subscribe_gcode_output() call. All 7 macro states (homing, meshing, leveling, probing, paused, cancelled, filament) now working correctly.
