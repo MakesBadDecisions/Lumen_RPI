@@ -609,15 +609,15 @@ class Lumen:
 
     async def _on_gcode_response(self, response: str) -> None:
         """Handle G-code responses to detect macro execution (v1.2.0)."""
-        # v1.4.2 DEBUG: Confirm this callback is being invoked
-        self._log_debug(f"[GCODE_RESPONSE_DEBUG] Received: {response[:100]}")
-
         if not self.klippy_ready:
             return
 
         # v1.4.1: CRITICAL - Ignore our own LUMEN messages to prevent infinite loop
         if response.startswith("LUMEN") or response.startswith("// LUMEN"):
             return
+
+        # v1.4.2 DEBUG: Confirm this callback is being invoked (MUST be after LUMEN filter!)
+        self._log_debug(f"[GCODE_RESPONSE_DEBUG] Received: {response[:100]}")
 
         # v1.4.1: Skip probe results and most comment lines (noise reduction)
         # These flood the logs and don't contain macro names
