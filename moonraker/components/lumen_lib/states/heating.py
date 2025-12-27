@@ -26,9 +26,9 @@ class HeatingDetector(BaseStateDetector):
     description = "Heaters warming up to target temperature"
     priority = 20
 
-    TEMP_TOLERANCE = 1.0  # Degrees C - stay in heating until very close to target
-    POWER_THRESHOLD = 0.05  # 5% heater power - stay in heating while heater is actively working
-    STABLE_TIME = 3.0  # Seconds - heater must be stable (at temp AND low power) for this long before exiting
+    TEMP_TOLERANCE = 2.0  # Degrees C - stay in heating until within 2°C of target
+    POWER_THRESHOLD = 0.01  # 1% - only when power drops to ~0% do we start the stability timer
+    STABLE_TIME = 10.0  # Seconds - heater must be at temp AND low power for this long before exiting
 
     def __init__(self):
         super().__init__()
@@ -115,9 +115,12 @@ class HeatingDetector(BaseStateDetector):
         ext_target = extruder.get('target', 0)
         ext_power = extruder.get('power', 0)
 
-        # Stay in heating if target set AND (not at temp OR heater still working)
         if ext_target > 0:
-            if (ext_temp + self.TEMP_TOLERANCE) < ext_target or ext_power > self.POWER_THRESHOLD:
+            # Not at temp yet - still actively heating up
+            if (ext_temp + self.TEMP_TOLERANCE) < ext_target:
+                return True
+            # At temp - check if power is above 1% (maintaining temperature)
+            if ext_power > self.POWER_THRESHOLD:
                 return True
 
         # Check bed
@@ -126,9 +129,12 @@ class HeatingDetector(BaseStateDetector):
         bed_target = heater_bed.get('target', 0)
         bed_power = heater_bed.get('power', 0)
 
-        # Stay in heating if target set AND (not at temp OR heater still working)
         if bed_target > 0:
-            if (bed_temp + self.TEMP_TOLERANCE) < bed_target or bed_power > self.POWER_THRESHOLD:
+            # Not at temp yet - still actively heating up
+            if (bed_temp + self.TEMP_TOLERANCE) < bed_target:
+                return True
+            # At temp - check if power is above 1% (maintaining temperature)
+            if bed_power > self.POWER_THRESHOLD:
                 return True
 
         # Check chamber (if available)
@@ -143,9 +149,10 @@ class HeatingDetector(BaseStateDetector):
 
         # Chamber heater check (if it has power field)
         if chamber_target > 0:
+            # Not at temp yet - still actively heating up
             if (chamber_temp + self.TEMP_TOLERANCE) < chamber_target:
                 return True
-            # Check power if available (heater_generic has it, temperature_sensor doesn't)
+            # At temp - check if power is above 1% (heater_generic has power, temperature_sensor doesn't)
             if chamber_power > self.POWER_THRESHOLD:
                 return True
 
