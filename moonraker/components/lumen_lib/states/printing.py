@@ -24,7 +24,7 @@ class PrintingDetector(BaseStateDetector):
     description = "Active print job in progress"
     priority = 10  # High priority (after error)
 
-    TEMP_TOLERANCE = 3.0  # Degrees C tolerance for "at temp"
+    TEMP_TOLERANCE = 10.0  # Degrees C tolerance for "at temp" - increased from 3.0 to prevent flickering during print
 
     def detect(
         self,
@@ -51,11 +51,13 @@ class PrintingDetector(BaseStateDetector):
         bed_target = heater_bed.get('target', 0)
 
         # If extruder has target and we're not close, still heating
+        # Using wider tolerance (10°C) to prevent flicker during normal temp fluctuations
         if ext_target > 0 and abs(ext_temp - ext_target) > self.TEMP_TOLERANCE:
             return False
 
         # If bed has target and we're not close, still heating
-        if bed_target > 0 and abs(bed_temp - bed_target) > self.TEMP_TOLERANCE:
+        # Bed temps are more stable, so we can be stricter here
+        if bed_target > 0 and abs(bed_temp - bed_target) > 5.0:
             return False
 
         return True
