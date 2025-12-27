@@ -1030,8 +1030,8 @@ class Lumen:
                             # Static effects: 5 FPS sufficient (0.2s interval)
                             driver_interval = max(base_interval, 0.2)
                         elif state.effect in SLOW_EFFECTS:
-                            # Slow animations: 20 FPS sufficient (0.05s interval)
-                            driver_interval = max(base_interval, 0.05)
+                            # Slow animations: 10 FPS max (0.1s interval) - v1.4.10: reduced to prevent queue backup
+                            driver_interval = max(base_interval, 0.1)
                         else:
                             # Fast animations (disco, rainbow, fire, comet, chase, kitt): use full driver speed
                             driver_interval = base_interval
@@ -1152,7 +1152,6 @@ class Lumen:
 
                             # Send all updates in one atomic HTTP request
                             if updates and hasattr(batch[0][0], 'set_batch'):
-                                self._log_debug(f"Sending batch for GPIO {gpio_pin}: {len(updates)} updates for groups {group_names}")
                                 await batch[0][0].set_batch(updates)
                     except Exception as e:
                         self._log_error(f"GPIO batch error on pin {gpio_pin}: {e}")
