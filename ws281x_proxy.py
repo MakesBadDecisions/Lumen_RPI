@@ -267,6 +267,7 @@ class Handler(BaseHTTPRequestHandler):
                 for i in range(start - 1, end):
                     strip.setPixelColor(i, c)
                 strip.show()
+                time.sleep(0.001)  # v1.4.11: 1ms delay for WS281x reset (requires >50μs between frames)
                 if not _QUIET_MODE:  # v1.4.3: Skip logging in quiet mode
                     _logger.info(f"Applied set_color gpio={gpio_pin} start={start} end={end} color=({int(r*255)},{int(g*255)},{int(b*255)})")
                 self._send_json(200, {'result': 'ok'})
@@ -315,6 +316,7 @@ class Handler(BaseHTTPRequestHandler):
                         r, g, b = color
                         strip.setPixelColor(led_index, Color(int(r * 255), int(g * 255), int(b * 255)))
                 strip.show()
+                time.sleep(0.001)  # v1.4.11: 1ms delay for WS281x reset (requires >50μs between frames)
                 self._send_json(200, {'result': 'ok'})
                 return
 
@@ -377,6 +379,7 @@ class Handler(BaseHTTPRequestHandler):
 
                 # CRITICAL: Single atomic show() for all updates
                 strip.show()
+                time.sleep(0.001)  # v1.4.11: 1ms delay for WS281x reset (requires >50μs between frames)
 
                 if not _QUIET_MODE:
                     _logger.info(f"Applied set_batch gpio={gpio_pin} updates={len(updates)}")
