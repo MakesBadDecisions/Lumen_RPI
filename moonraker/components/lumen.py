@@ -631,34 +631,33 @@ class Lumen:
         self._log_debug(f"Macro state activated: {state_name}")
 
     async def _on_status_update(self, status: Dict[str, Any]) -> None:
-        # v1.4.8 - DEBUG: Log ALL status updates to see what we're receiving
-        if "toolhead" in status:
-            self._log_info(f"[DEBUG] Status update contains toolhead: {list(status['toolhead'].keys())}")
-            if "homed_axes" in status["toolhead"]:
-                self._log_info(f"[DEBUG] homed_axes in update: '{status['toolhead']['homed_axes']}'")
+        # v1.4.8 - Query homed_axes on every status update (subscriptions only send deltas)
+        # Position updates happen frequently, so we poll homed_axes to detect changes
+        if "toolhead" in status and "position" in status["toolhead"]:
+            try:
+                klippy_apis = self.server.lookup_component("klippy_apis")
+                result = await klippy_apis.query_objects({"toolhead": ["homed_axes"]})
 
-        # v1.4.8 - Detect homing via homed_axes changes
-        if "toolhead" in status and "homed_axes" in status["toolhead"]:
-            current_homed_axes = status["toolhead"]["homed_axes"]
+                if result and "toolhead" in result and "homed_axes" in result["toolhead"]:
+                    current_homed_axes = result["toolhead"]["homed_axes"]
 
-            # Detect homing START: axes go from homed (e.g., "xyz") to unhomed (e.g., "")
-            # When G28 runs, Klipper clears homed_axes first, then sets them after homing
-            if self._last_homed_axes and not current_homed_axes:
-                # Axes just became unhomed - homing is starting!
-                self._log_info(f"[DEBUG] Homing detected: homed_axes changed from '{self._last_homed_axes}' to '' (homing started)")
-                self._activate_macro_state("homing")
+                    # Detect homing START: axes go from homed to unhomed
+                    if self._last_homed_axes and not current_homed_axes:
+                        self._log_info(f"[DEBUG] Homing detected: homed_axes '{self._last_homed_axes}' → '' (homing started)")
+                        self._activate_macro_state("homing")
 
-            # Detect homing END: axes go from unhomed to homed
-            elif not self._last_homed_axes and current_homed_axes:
-                self._log_info(f"[DEBUG] Homing complete: homed_axes changed from '' to '{current_homed_axes}'")
-                # Clear homing state - printer will transition to next state automatically
-                if self._active_macro_state == "homing":
-                    self._active_macro_state = None
-                    self._macro_start_time = 0.0
-                    self.printer_state.active_macro_state = None
-                    self.printer_state.macro_start_time = 0.0
+                    # Detect homing END: axes go from unhomed to homed
+                    elif not self._last_homed_axes and current_homed_axes:
+                        self._log_info(f"[DEBUG] Homing complete: homed_axes '' → '{current_homed_axes}'")
+                        if self._active_macro_state == "homing":
+                            self._active_macro_state = None
+                            self._macro_start_time = 0.0
+                            self.printer_state.active_macro_state = None
+                            self.printer_state.macro_start_time = 0.0
 
-            self._last_homed_axes = current_homed_axes
+                    self._last_homed_axes = current_homed_axes
+            except Exception as e:
+                self._log_debug(f"Failed to query homed_axes: {e}")
 
         self.printer_state.update_from_status(status)
 
