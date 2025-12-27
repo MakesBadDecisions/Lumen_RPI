@@ -71,20 +71,6 @@ class Lumen:
         self.bed_y_min = 0.0
         self.bed_y_max = 300.0
 
-        # Macro tracking for state detection (v1.2.0)
-        self.macro_homing: List[str] = []
-        self.macro_meshing: List[str] = []
-        self.macro_leveling: List[str] = []
-        self.macro_probing: List[str] = []
-        self.macro_paused: List[str] = []
-        self.macro_cancelled: List[str] = []
-        self.macro_filament: List[str] = []
-        self._active_macro_state: Optional[str] = None  # Current macro-triggered state
-        self._macro_start_time: float = 0.0
-
-        # v1.4.8 - Homing detection via toolhead.homed_axes
-        self._last_homed_axes: str = ""  # Track previous homed_axes to detect homing start
-
         # LED groups, drivers, effects
         self.led_groups: Dict[str, Dict[str, Any]] = {}
         self.event_mappings: Dict[str, List[Dict[str, str]]] = {}
@@ -137,11 +123,9 @@ class Lumen:
         self.server.register_event_handler("server:klippy_shutdown", self._on_klippy_shutdown)
         self.server.register_event_handler("server:klippy_disconnected", self._on_klippy_disconnected)
         self.server.register_event_handler("server:status_update", self._on_status_update)
-        self.server.register_event_handler("server:gcode_response", self._on_gcode_response)
         self.server.register_event_handler("server:exit", self._on_server_shutdown)
         self.state_detector.add_listener(self._on_event_change)
 
-        # v1.4.5: Event handler registration (gcode subscription happens in _on_klippy_ready)
         self._log_info("Event handlers registered")
         
         # Register API endpoints
@@ -288,10 +272,8 @@ class Lumen:
         """Validate configuration and collect warnings."""
         available_colors = list_colors()
         valid_effects = set(EFFECT_REGISTRY.keys())
-        # v1.2.0 - Added macro-triggered states
         valid_events = {
-            "idle", "heating", "printing", "cooldown", "error", "bored", "sleep",
-            "homing", "meshing", "leveling", "probing", "paused", "cancelled", "filament"
+            "idle", "heating", "printing", "cooldown", "error", "bored", "sleep"
         }
 
         # Effects that require addressable LEDs (not compatible with PWM driver)
@@ -362,12 +344,6 @@ class Lumen:
             section_name = parts[1] if len(parts) > 1 else None
 
             if section_type == "lumen_settings":
-                # v1.4.6 DEBUG: Log what keys are in the data dict
-                self._log_info(f"[DEBUG] Processing [lumen_settings] with {len(data)} keys: {list(data.keys())}")
-                if "macro_homing" in data:
-                    self._log_info(f"[DEBUG] macro_homing value: '{data['macro_homing']}'")
-                else:
-                    self._log_info(f"[DEBUG] macro_homing NOT FOUND in data dict")
                 self.temp_floor = float(data.get("temp_floor", self.temp_floor))
                 self.bored_timeout = float(data.get("bored_timeout", self.bored_timeout))
                 self.sleep_timeout = float(data.get("sleep_timeout", self.sleep_timeout))
@@ -380,16 +356,6 @@ class Lumen:
                 self.bed_x_max = float(data.get("bed_x_max", self.bed_x_max))
                 self.bed_y_min = float(data.get("bed_y_min", self.bed_y_min))
                 self.bed_y_max = float(data.get("bed_y_max", self.bed_y_max))
-                # Macro tracking (v1.2.0) - comma-separated lists
-                self.macro_homing = self._parse_macro_list(data.get("macro_homing", ""))
-                self.macro_meshing = self._parse_macro_list(data.get("macro_meshing", ""))
-                self.macro_leveling = self._parse_macro_list(data.get("macro_leveling", ""))
-                self.macro_probing = self._parse_macro_list(data.get("macro_probing", ""))
-                self.macro_paused = self._parse_macro_list(data.get("macro_paused", ""))
-                self.macro_cancelled = self._parse_macro_list(data.get("macro_cancelled", ""))
-                self.macro_filament = self._parse_macro_list(data.get("macro_filament", ""))
-                # v1.4.6 DEBUG: Verify parsed lists
-                self._log_info(f"[DEBUG] After parsing - macro_homing list: {self.macro_homing}")
             
             elif section_type == "lumen_effect" and section_name:
                 self.effect_settings[section_name] = data.copy()
@@ -422,14 +388,6 @@ class Lumen:
         except Exception as e:
             loc = f" (line {line_num})" if line_num else ""
             self._log_error(f"Error in section [{section}]{loc}: {e}")
-
-    def _parse_macro_list(self, value: str) -> List[str]:
-        """Parse comma-separated macro list and return uppercase list."""
-        if not value or not value.strip():
-            return []
-        # Split by comma, strip whitespace, convert to uppercase, filter empties
-        macros = [m.strip().upper() for m in value.split(",")]
-        return [m for m in macros if m]
 
     def _parse_effect_color(self, value: str) -> Dict[str, Any]:
         """Parse effect specification with optional inline parameters.
@@ -542,17 +500,11 @@ class Lumen:
                 "heater_bed": ["temperature", "target"],
                 "extruder": ["temperature", "target"],
                 "idle_timeout": ["state"],
-                "toolhead": ["position", "homed_axes"],  # v1.4.8 - Added homed_axes for homing detection
+                "toolhead": ["position"],
                 # v1.3.0 - Optional sensors (graceful if not present)
                 "temperature_sensor chamber_temp": ["temperature"],
                 "filament_switch_sensor filament_sensor": ["filament_detected"],
             })
-
-            # v1.4.5: Subscribe to G-code output for macro tracking
-            # This tells Klippy to send gcode responses to the process_gcode_response
-            # method in klippy_connection, which then broadcasts them as server:gcode_response events
-            await klippy_apis.subscribe_gcode_output()
-            self._log_info("Klippy ready - subscribed to gcode output for macro tracking")
 
             # Query current state (subscription only gives deltas)
             result = await klippy_apis.query_objects({
@@ -562,7 +514,7 @@ class Lumen:
                 "heater_bed": ["temperature", "target"],
                 "extruder": ["temperature", "target"],
                 "idle_timeout": ["state"],
-                "toolhead": ["position", "homed_axes"],  # v1.4.8 - Added homed_axes
+                "toolhead": ["position"],
                 # v1.3.0 - Optional sensors
                 "temperature_sensor chamber_temp": ["temperature"],
                 "filament_switch_sensor filament_sensor": ["filament_detected"],
@@ -570,11 +522,6 @@ class Lumen:
             if result:
                 self.printer_state.update_from_status(result)
                 self._log_debug(f"Initial state: print={self.printer_state.print_state}, bed_target={self.printer_state.bed_target}")
-
-                # v1.4.8 - Initialize homed_axes tracking
-                if "toolhead" in result and "homed_axes" in result["toolhead"]:
-                    self._last_homed_axes = result["toolhead"]["homed_axes"]
-                    self._log_debug(f"Initial homed_axes: '{self._last_homed_axes}'")
 
             # Detect current event from queried state
             event = self.state_detector.update(self.printer_state)
@@ -617,123 +564,14 @@ class Lumen:
             except Exception as e:
                 self._log_error(f"Failed to turn off {name}: {e}")
 
-    def _activate_macro_state(self, state_name: str) -> None:
-        """
-        Activate a macro-triggered state (v1.4.8).
-
-        Args:
-            state_name: Name of the macro state (homing, meshing, leveling, etc.)
-        """
-        self._active_macro_state = state_name
-        self._macro_start_time = time.time()
-        self.printer_state.active_macro_state = state_name
-        self.printer_state.macro_start_time = self._macro_start_time
-        self._log_debug(f"Macro state activated: {state_name}")
-
     async def _on_status_update(self, status: Dict[str, Any]) -> None:
-        # v1.4.9 - Removed v1.4.8 homed_axes polling (proved ineffective and spammy)
-        # Investigation showed homed_axes doesn't change during homing on most machines
-        # Macro tracking must use RESPOND messages or LUMEN_WAKE command instead
-
+        """Handle status updates from Klipper."""
         self.printer_state.update_from_status(status)
-
-        # v1.4.1: Check for macro timeout (safety - clear after 2 minutes)
-        if self._active_macro_state and self._macro_start_time > 0:
-            if time.time() - self._macro_start_time > 120.0:
-                self._log_warning(f"Macro timeout: {self._active_macro_state} (120s elapsed, clearing state)")
-                self._active_macro_state = None
-                self._macro_start_time = 0.0
-                self.printer_state.active_macro_state = None
-                self.printer_state.macro_start_time = 0.0
 
         new_event = self.state_detector.update(self.printer_state)
         if new_event:
             task = asyncio.create_task(self._apply_event(new_event))
             task.add_done_callback(self._task_exception_handler)
-
-    async def _on_gcode_response(self, *args, **kwargs) -> None:
-        """Handle G-code responses to detect macro execution (v1.2.0)."""
-        if not self.klippy_ready:
-            return
-
-        # Try to extract response string from whatever format Moonraker sends
-        response = None
-        if args:
-            response = str(args[0])  # First positional arg
-        elif 'response' in kwargs:
-            response = str(kwargs['response'])  # Keyword arg
-        else:
-            self._log_info(f"[DEBUG] Could not find response string in event data!")
-            return
-
-        # v1.4.7 DEBUG: Log ALL gcode responses (before filtering) to see everything
-        self._log_info(f"[DEBUG] GCODE Response: {response[:80]}")
-
-        # v1.4.1: CRITICAL - Ignore our own LUMEN messages to prevent infinite loop
-        if response.startswith("LUMEN") or response.startswith("// LUMEN"):
-            return
-
-        # v1.4.1: Skip probe results and most comment lines (noise reduction)
-        # These flood the logs and don't contain macro names
-        if response.startswith("// probe at") or response.startswith("probe at"):
-            return
-
-        # v1.4.1: Detect macro completion messages and clear macro state
-        completion_markers = {
-            "meshing": ["// Mesh Bed Leveling Complete", "// mesh bed leveling complete"],
-            "homing": ["// Homing Complete", "// homing complete"],
-            "leveling": ["// Gantry Leveling Complete", "// gantry leveling complete",
-                        "// Z-Tilt Adjust Complete", "// z-tilt adjust complete"],
-            "probing": ["// Probe Calibration Complete", "// probe calibration complete"],
-        }
-
-        if self._active_macro_state:
-            markers = completion_markers.get(self._active_macro_state, [])
-            for marker in markers:
-                if marker.lower() in response.lower():
-                    self._log_debug(f"Macro completion detected: {self._active_macro_state}")
-                    self._active_macro_state = None
-                    self._macro_start_time = 0.0
-                    self.printer_state.active_macro_state = None
-                    self.printer_state.macro_start_time = 0.0
-
-                    # Force state detector to re-evaluate (return to normal state cycle)
-                    new_event = self.state_detector.update(self.printer_state)
-                    if new_event:
-                        task = asyncio.create_task(self._apply_event(new_event))
-                        task.add_done_callback(self._task_exception_handler)
-                    return
-
-        # Convert response to uppercase for case-insensitive matching
-        response_upper = response.upper()
-
-        # Check each macro type
-        macro_map = {
-            "homing": self.macro_homing,
-            "meshing": self.macro_meshing,
-            "leveling": self.macro_leveling,
-            "probing": self.macro_probing,
-            "paused": self.macro_paused,
-            "cancelled": self.macro_cancelled,
-            "filament": self.macro_filament,
-        }
-
-        for state_name, macro_list in macro_map.items():
-            if not macro_list:
-                continue
-
-            for macro in macro_list:
-                if macro in response_upper:
-                    # Macro detected - activate macro state
-                    self._activate_macro_state(state_name)
-                    self._log_info(f"[DEBUG] Macro detected via gcode: {macro} → state: {state_name}")
-
-                    # Force state detector to re-evaluate with macro state active
-                    new_event = self.state_detector.update(self.printer_state)
-                    if new_event:
-                        task = asyncio.create_task(self._apply_event(new_event))
-                        task.add_done_callback(self._task_exception_handler)
-                    break
 
     def _on_event_change(self, event: PrinterEvent) -> None:
         """Called when printer event changes."""
@@ -1045,10 +883,9 @@ class Lumen:
             if not driver or group_name not in group_electrical_colors:
                 continue
 
-            # v1.4.1: Skip Klipper/PWM drivers during macro states (G-code queue blocked)
-            # v1.4.3: ALSO skip during normal printing - G-code queue is ALWAYS busy, not just in macros
+            # Skip Klipper/PWM drivers during printing - G-code queue is busy
             if isinstance(driver, (KlipperDriver, PWMDriver)):
-                if self._active_macro_state or is_printing:
+                if is_printing:
                     continue
 
             group_cfg = self.led_groups.get(group_name, {})
@@ -1112,9 +949,7 @@ class Lumen:
         try:
             while self._animation_running:
                 now = time.time()
-                # v1.4.1: During macro states, use idle interval for faster GPIO animations
-                # Macro states (homing, meshing, etc.) should run at full speed even if technically "printing"
-                is_printing = self.printer_state.print_state == "printing" and not self._active_macro_state
+                is_printing = self.printer_state.print_state == "printing"
 
                 # v1.4.0: Build state_data once per cycle (optimization - was rebuilt for each effect)
                 state_data_cache = {
@@ -1176,10 +1011,9 @@ class Lumen:
                     if not driver:
                         continue
 
-                    # v1.4.1: Skip Klipper/PWM drivers during macro states (G-code queue blocked, causes timeout spam)
-                    # v1.4.3: ALSO skip during normal printing - G-code queue is ALWAYS busy, not just in macros
+                    # Skip Klipper/PWM drivers during printing - G-code queue is busy
                     if isinstance(driver, (KlipperDriver, PWMDriver)):
-                        if self._active_macro_state or is_printing:
+                        if is_printing:
                             continue
 
                     # v1.4.0: Use cached driver interval (avoids isinstance() check in hot path)
@@ -1360,12 +1194,6 @@ class Lumen:
                     await self._animation_task
                 except asyncio.CancelledError:
                     pass
-
-        # v1.4.1: Clear macro state to prevent stuck states after reload
-        self._active_macro_state = None
-        self._macro_start_time = 0.0
-        self.printer_state.active_macro_state = None
-        self.printer_state.macro_start_time = 0.0
 
         # Reload config
         self._load_config()
