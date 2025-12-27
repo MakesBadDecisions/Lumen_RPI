@@ -372,8 +372,19 @@ class ProxyDriver(LEDDriver):
         url = self._proxy_url(path)
         data = json.dumps(payload).encode('utf-8')
 
+        queue = _gpio_request_queues[self.gpio_pin]
+
+        # v1.4.10: Drop old frames if queue is backing up (keep max 2 pending requests)
+        # This prevents flicker from stale frames showing through
+        while queue.qsize() >= 2:
+            try:
+                queue.get_nowait()  # Drop oldest pending request
+                queue.task_done()
+            except asyncio.QueueEmpty:
+                break
+
         # Add to queue - returns immediately, worker processes serially
-        await _gpio_request_queues[self.gpio_pin].put((url, data))
+        await queue.put((url, data))
 
     async def set_color(self, r: float, g: float, b: float) -> None:
         payload = {
