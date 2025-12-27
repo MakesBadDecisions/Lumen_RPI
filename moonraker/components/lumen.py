@@ -1124,7 +1124,9 @@ class Lumen:
                         else:
                             # Multiple groups share this GPIO pin - use atomic batch update
                             updates = []
+                            group_names = []
                             for driver, colors, group_name in batch:
+                                group_names.append(group_name)
                                 if len(colors) == 1:
                                     # Solid color update
                                     color = colors[0]
@@ -1150,6 +1152,7 @@ class Lumen:
 
                             # Send all updates in one atomic HTTP request
                             if updates and hasattr(batch[0][0], 'set_batch'):
+                                self._log_debug(f"Sending batch for GPIO {gpio_pin}: {len(updates)} updates for groups {group_names}")
                                 await batch[0][0].set_batch(updates)
                     except Exception as e:
                         self._log_error(f"GPIO batch error on pin {gpio_pin}: {e}")
