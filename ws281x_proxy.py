@@ -64,8 +64,9 @@ _strips: Dict[int, PixelStrip] = {}
 _strip_sizes: Dict[int, int] = {}
 _strip_types: Dict[int, int] = {}  # Store strip_type per pin
 _strip_errors: Dict[int, str] = {}
-_strip_locks: Dict[int, Lock] = {}
-_strip_locks_lock = Lock()  # Global lock to protect _strip_locks creation
+# v1.4.12: Keep only init lock for thread-safe strip creation
+_strip_init_locks: Dict[int, Lock] = {}
+_strip_init_locks_lock = Lock()  # Global lock to protect _strip_init_locks creation
 
 
 def _get_strip(pin: int, total: int, strip_type: int = DEFAULT_STRIP_TYPE) -> Optional[PixelStrip]:
@@ -76,13 +77,13 @@ def _get_strip(pin: int, total: int, strip_type: int = DEFAULT_STRIP_TYPE) -> Op
         total: Minimum number of LEDs needed
         strip_type: Color order constant (e.g., ws.WS2811_STRIP_GRB)
     """
-    # Ensure a per-pin lock exists (thread-safe creation)
-    global _strip_locks, _strip_locks_lock
-    with _strip_locks_lock:
-        if pin not in _strip_locks:
-            _strip_locks[pin] = Lock()
+    # Ensure a per-pin lock exists (thread-safe strip initialization only)
+    global _strip_init_locks, _strip_init_locks_lock
+    with _strip_init_locks_lock:
+        if pin not in _strip_init_locks:
+            _strip_init_locks[pin] = Lock()
 
-    with _strip_locks[pin]:
+    with _strip_init_locks[pin]:
         # Check if strip already exists
         if pin in _strips:
             cur = _strip_sizes[pin]
@@ -263,12 +264,11 @@ class Handler(BaseHTTPRequestHandler):
                     self._send_json(500, {'error': 'strip init failed'})
                     return
 
-                # v1.4.11: Lock strip access to prevent thread interleaving
-                with _strip_locks[gpio_pin]:
-                    c = Color(int(r * 255), int(g * 255), int(b * 255))
-                    for i in range(start - 1, end):
-                        strip.setPixelColor(i, c)
-                    strip.show()
+                # v1.4.12: No locking - reverted to original simple approach
+                c = Color(int(r * 255), int(g * 255), int(b * 255))
+                for i in range(start - 1, end):
+                    strip.setPixelColor(i, c)
+                strip.show()
                 # WS281x reset time handled by hardware (>50μs automatically)
 
                 if not _QUIET_MODE:  # v1.4.3: Skip logging in quiet mode
@@ -309,18 +309,17 @@ class Handler(BaseHTTPRequestHandler):
                         all_equal = False
                     _logger.info(f"Set_leds gpio={gpio_pin} start={start} len={len(colors)} sample={converted} all_equal={all_equal}")
 
-                # v1.4.11: Lock strip access to prevent thread interleaving
-                with _strip_locks[gpio_pin]:
-                    for i, color in enumerate(colors):
-                        led_index = start - 1 + i
-                        if led_index >= _strip_sizes[gpio_pin]:
-                            break
-                        if color is None:
-                            strip.setPixelColor(led_index, Color(0, 0, 0))
-                        else:
-                            r, g, b = color
-                            strip.setPixelColor(led_index, Color(int(r * 255), int(g * 255), int(b * 255)))
-                    strip.show()
+                # v1.4.12: No locking - reverted to original simple approach
+                for i, color in enumerate(colors):
+                    led_index = start - 1 + i
+                    if led_index >= _strip_sizes[gpio_pin]:
+                        break
+                    if color is None:
+                        strip.setPixelColor(led_index, Color(0, 0, 0))
+                    else:
+                        r, g, b = color
+                        strip.setPixelColor(led_index, Color(int(r * 255), int(g * 255), int(b * 255)))
+                strip.show()
                 # WS281x reset time handled by hardware (>50μs automatically)
 
                 self._send_json(200, {'result': 'ok'})
@@ -357,36 +356,35 @@ class Handler(BaseHTTPRequestHandler):
                     self._send_json(500, {'error': 'strip init failed'})
                     return
 
-                # v1.4.11: Lock strip access to prevent thread interleaving
-                with _strip_locks[gpio_pin]:
-                    # Apply all updates to the strip (no show() yet - batch them)
-                    for update in updates:
-                        start = int(update.get('index_start', 1))
-                        colors = update.get('colors')
+                # v1.4.12: No locking - reverted to original simple approach
+                # Apply all updates to the strip (no show() yet - batch them)
+                for update in updates:
+                    start = int(update.get('index_start', 1))
+                    colors = update.get('colors')
 
-                        if colors is not None:
-                            # Multi-LED update
-                            for i, color in enumerate(colors):
-                                led_index = start - 1 + i
-                                if led_index >= _strip_sizes[gpio_pin]:
-                                    break
-                                if color is None:
-                                    strip.setPixelColor(led_index, Color(0, 0, 0))
-                                else:
-                                    r, g, b = color
-                                    strip.setPixelColor(led_index, Color(int(r * 255), int(g * 255), int(b * 255)))
-                        else:
-                            # Solid color update
-                            end = int(update.get('index_end', start))
-                            r = float(update.get('r', 1.0))
-                            g = float(update.get('g', 1.0))
-                            b = float(update.get('b', 1.0))
-                            c = Color(int(r * 255), int(g * 255), int(b * 255))
-                            for i in range(start - 1, end):
-                                strip.setPixelColor(i, c)
+                    if colors is not None:
+                        # Multi-LED update
+                        for i, color in enumerate(colors):
+                            led_index = start - 1 + i
+                            if led_index >= _strip_sizes[gpio_pin]:
+                                break
+                            if color is None:
+                                strip.setPixelColor(led_index, Color(0, 0, 0))
+                            else:
+                                r, g, b = color
+                                strip.setPixelColor(led_index, Color(int(r * 255), int(g * 255), int(b * 255)))
+                    else:
+                        # Solid color update
+                        end = int(update.get('index_end', start))
+                        r = float(update.get('r', 1.0))
+                        g = float(update.get('g', 1.0))
+                        b = float(update.get('b', 1.0))
+                        c = Color(int(r * 255), int(g * 255), int(b * 255))
+                        for i in range(start - 1, end):
+                            strip.setPixelColor(i, c)
 
-                    # CRITICAL: Single atomic show() for all updates
-                    strip.show()
+                # CRITICAL: Single atomic show() for all updates
+                strip.show()
                 # WS281x reset time handled by hardware (>50μs automatically)
 
                 if not _QUIET_MODE:
@@ -457,10 +455,9 @@ def main():
     server_address = (args.host, args.port)
     _logger.info(f"Starting ws281x proxy on {args.host}:{args.port}")
     _logger.info(f"Python: {sys.executable} script: {Path(__file__).resolve()} pid: {os.getpid()}")
-    # v1.4.11: Use single-threaded server to ensure true request serialization
-    # This prevents any possibility of thread interleaving despite locks
-    httpd = HTTPServer(server_address, Handler)
-    _logger.info("Using single-threaded HTTP server (requests processed serially)")
+    # v1.4.12: Reverted to ThreadingHTTPServer (original approach)
+    httpd = ThreadingHTTPServer(server_address, Handler)
+    _logger.info("Using ThreadingHTTPServer (requests handled in parallel)")
 
     # Start watchdog thread if systemd available
     if SYSTEMD_AVAILABLE:

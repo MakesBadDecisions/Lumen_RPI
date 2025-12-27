@@ -292,19 +292,12 @@ class GPIODriver(LEDDriver):
         self.strip.show()
 
 
-
-
-# Per-GPIO request queues to serialize updates without blocking animation loop
-_gpio_request_queues: Dict[int, asyncio.Queue] = {}
-_gpio_queue_workers: Dict[int, asyncio.Task] = {}
-
-
 class ProxyDriver(LEDDriver):
     """
     Driver communicating with a helper ws281x proxy server running as root.
     The proxy avoids needing Moonraker to run with raw IO privileges.
 
-    v1.4.10: Uses per-GPIO queue to serialize requests without blocking animation loop.
+    v1.4.12: Reverted to simple fire-and-forget async requests (original approach).
     """
     def __init__(self, name: str, config: Dict[str, Any], server: Any):
         super().__init__(name, config, server)
@@ -317,66 +310,23 @@ class ProxyDriver(LEDDriver):
         # Color order for WS281x strips (most common is GRB for WS2812B)
         self.color_order = config.get("color_order", "GRB").upper().strip()
 
-        # v1.4.10: Ensure queue worker exists for this GPIO pin
-        self._ensure_queue_worker()
-
-    def _ensure_queue_worker(self) -> None:
-        """Ensure background queue worker exists for this GPIO pin."""
-        global _gpio_request_queues, _gpio_queue_workers
-
-        if self.gpio_pin not in _gpio_request_queues:
-            _gpio_request_queues[self.gpio_pin] = asyncio.Queue()
-            # Don't start worker here - will be started on first use when event loop exists
-            _gpio_queue_workers[self.gpio_pin] = None
-
-    async def _start_queue_worker(self) -> None:
-        """Start queue worker if not already running."""
-        global _gpio_queue_workers
-
-        if _gpio_queue_workers[self.gpio_pin] is None or _gpio_queue_workers[self.gpio_pin].done():
-            _gpio_queue_workers[self.gpio_pin] = asyncio.create_task(self._queue_worker())
-
-    async def _queue_worker(self) -> None:
-        """Background worker that processes queued requests serially."""
-        import time
-        queue = _gpio_request_queues[self.gpio_pin]
-
-        while True:
-            try:
-                url, data = await queue.get()
-
-                def _send():
-                    try:
-                        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-                        with urllib.request.urlopen(req, timeout=0.1) as resp:
-                            pass
-                    except Exception:
-                        pass  # Silent failure - proxy updates are best-effort
-
-                # Process request (blocking this worker, but not the animation loop)
-                await asyncio.to_thread(_send)
-                queue.task_done()
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                _logger.error(f"[LUMEN] Queue worker error on GPIO {self.gpio_pin}: {e}")
-
     def _proxy_url(self, path: str) -> str:
         return f"http://{self.proxy_host}:{self.proxy_port}{path}"
 
     async def _post(self, path: str, payload: Dict[str, Any]) -> None:
-        """Queue HTTP POST to proxy (v1.4.11: non-blocking serialized queue)."""
-        # Start worker if needed
-        await self._start_queue_worker()
-
+        """Fire-and-forget HTTP POST to proxy (v1.4.12: reverted to simple async)."""
         url = self._proxy_url(path)
         data = json.dumps(payload).encode('utf-8')
 
-        queue = _gpio_request_queues[self.gpio_pin]
+        def _send():
+            try:
+                req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+                urllib.request.urlopen(req, timeout=0.1)
+            except Exception:
+                pass  # Silent failure - proxy updates are best-effort
 
-        # v1.4.11: Queue all requests - proxy now uses locks to prevent thread interleaving
-        # No frame dropping needed since threading race condition is fixed in proxy
-        await queue.put((url, data))
+        # Fire-and-forget: Launch request in background without waiting
+        asyncio.create_task(asyncio.to_thread(_send))
 
     async def set_color(self, r: float, g: float, b: float) -> None:
         payload = {
