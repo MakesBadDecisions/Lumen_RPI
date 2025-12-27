@@ -360,18 +360,9 @@ class Handler(BaseHTTPRequestHandler):
                 # v1.4.11: Lock strip access to prevent thread interleaving
                 with _strip_locks[gpio_pin]:
                     # Apply all updates to the strip (no show() yet - batch them)
-                    for update_idx, update in enumerate(updates):
+                    for update in updates:
                         start = int(update.get('index_start', 1))
                         colors = update.get('colors')
-
-                        # v1.4.11: Debug logging for center group only
-                        if start >= 37 and start <= 53:
-                            if colors is not None:
-                                _logger.info(f"[BATCH {update_idx}] Center multicolor: start={start} len={len(colors)}")
-                            else:
-                                end = int(update.get('index_end', start))
-                                r, g, b = update.get('r', 0), update.get('g', 0), update.get('b', 0)
-                                _logger.info(f"[BATCH {update_idx}] Center solid: start={start} end={end} rgb=({r:.2f},{g:.2f},{b:.2f})")
 
                         if colors is not None:
                             # Multi-LED update
@@ -466,7 +457,10 @@ def main():
     server_address = (args.host, args.port)
     _logger.info(f"Starting ws281x proxy on {args.host}:{args.port}")
     _logger.info(f"Python: {sys.executable} script: {Path(__file__).resolve()} pid: {os.getpid()}")
-    httpd = ThreadingHTTPServer(server_address, Handler)
+    # v1.4.11: Use single-threaded server to ensure true request serialization
+    # This prevents any possibility of thread interleaving despite locks
+    httpd = HTTPServer(server_address, Handler)
+    _logger.info("Using single-threaded HTTP server (requests processed serially)")
 
     # Start watchdog thread if systemd available
     if SYSTEMD_AVAILABLE:
