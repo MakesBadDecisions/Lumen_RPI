@@ -31,11 +31,14 @@ class PrinterState:
 
     bed_temp: float = 0.0
     bed_target: float = 0.0
+    bed_power: float = 0.0  # Heater power output (0.0-1.0)
     extruder_temp: float = 0.0
     extruder_target: float = 0.0
+    extruder_power: float = 0.0  # Heater power output (0.0-1.0)
     # v1.3.0 - Chamber temperature support
     chamber_temp: float = 0.0
     chamber_target: float = 0.0
+    chamber_power: float = 0.0  # Heater power output (0.0-1.0) - only if heater_generic
 
     position_x: float = 0.0
     position_y: float = 0.0
@@ -71,20 +74,33 @@ class PrinterState:
                 self.bed_temp = hb.get("temperature", 0.0) or 0.0
             if "target" in hb:
                 self.bed_target = hb.get("target", 0.0) or 0.0
-        
+            if "power" in hb:
+                self.bed_power = hb.get("power", 0.0) or 0.0
+
         if "extruder" in status:
             ex = status["extruder"]
             if "temperature" in ex:
                 self.extruder_temp = ex.get("temperature", 0.0) or 0.0
             if "target" in ex:
                 self.extruder_target = ex.get("target", 0.0) or 0.0
+            if "power" in ex:
+                self.extruder_power = ex.get("power", 0.0) or 0.0
 
-        # v1.3.0 - Chamber temperature (temperature_sensor chamber_temp)
+        # v1.3.0 - Chamber temperature (temperature_sensor chamber_temp or heater_generic chamber)
         if "temperature_sensor chamber_temp" in status:
             chamber = status["temperature_sensor chamber_temp"]
             if "temperature" in chamber:
                 self.chamber_temp = chamber.get("temperature", 0.0) or 0.0
-            # Note: temperature_sensor doesn't have targets, only monitored temp
+            # Note: temperature_sensor doesn't have targets or power, only monitored temp
+
+        if "heater_generic chamber" in status:
+            chamber = status["heater_generic chamber"]
+            if "temperature" in chamber:
+                self.chamber_temp = chamber.get("temperature", 0.0) or 0.0
+            if "target" in chamber:
+                self.chamber_target = chamber.get("target", 0.0) or 0.0
+            if "power" in chamber:
+                self.chamber_power = chamber.get("power", 0.0) or 0.0
 
         # v1.3.0 - Filament sensor
         if "filament_switch_sensor filament_sensor" in status:
@@ -208,10 +224,12 @@ class StateDetector:
             'heater_bed': {
                 'temperature': state.bed_temp,
                 'target': state.bed_target,
+                'power': state.bed_power,
             },
             'extruder': {
                 'temperature': state.extruder_temp,
                 'target': state.extruder_target,
+                'power': state.extruder_power,
             },
             'toolhead': {
                 'position': [state.position_x, state.position_y, state.position_z],
@@ -223,6 +241,14 @@ class StateDetector:
         if state.filament_detected is not None:
             status['filament_switch_sensor filament_sensor'] = {
                 'filament_detected': state.filament_detected
+            }
+
+        # v1.3.0 - Add chamber heater if it has a target set (heater_generic chamber)
+        if state.chamber_target > 0:
+            status['heater_generic chamber'] = {
+                'temperature': state.chamber_temp,
+                'target': state.chamber_target,
+                'power': state.chamber_power,
             }
 
         # Build context for time-based detectors
