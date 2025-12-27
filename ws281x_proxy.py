@@ -263,11 +263,14 @@ class Handler(BaseHTTPRequestHandler):
                     self._send_json(500, {'error': 'strip init failed'})
                     return
 
-                c = Color(int(r * 255), int(g * 255), int(b * 255))
-                for i in range(start - 1, end):
-                    strip.setPixelColor(i, c)
-                strip.show()
-                time.sleep(0.001)  # v1.4.11: 1ms delay for WS281x reset (requires >50μs between frames)
+                # v1.4.11: Lock strip access to prevent thread interleaving
+                with _strip_locks[gpio_pin]:
+                    c = Color(int(r * 255), int(g * 255), int(b * 255))
+                    for i in range(start - 1, end):
+                        strip.setPixelColor(i, c)
+                    strip.show()
+                    time.sleep(0.001)  # v1.4.11: 1ms delay for WS281x reset (requires >50μs between frames)
+
                 if not _QUIET_MODE:  # v1.4.3: Skip logging in quiet mode
                     _logger.info(f"Applied set_color gpio={gpio_pin} start={start} end={end} color=({int(r*255)},{int(g*255)},{int(b*255)})")
                 self._send_json(200, {'result': 'ok'})
@@ -306,17 +309,20 @@ class Handler(BaseHTTPRequestHandler):
                         all_equal = False
                     _logger.info(f"Set_leds gpio={gpio_pin} start={start} len={len(colors)} sample={converted} all_equal={all_equal}")
 
-                for i, color in enumerate(colors):
-                    led_index = start - 1 + i
-                    if led_index >= _strip_sizes[gpio_pin]:
-                        break
-                    if color is None:
-                        strip.setPixelColor(led_index, Color(0, 0, 0))
-                    else:
-                        r, g, b = color
-                        strip.setPixelColor(led_index, Color(int(r * 255), int(g * 255), int(b * 255)))
-                strip.show()
-                time.sleep(0.001)  # v1.4.11: 1ms delay for WS281x reset (requires >50μs between frames)
+                # v1.4.11: Lock strip access to prevent thread interleaving
+                with _strip_locks[gpio_pin]:
+                    for i, color in enumerate(colors):
+                        led_index = start - 1 + i
+                        if led_index >= _strip_sizes[gpio_pin]:
+                            break
+                        if color is None:
+                            strip.setPixelColor(led_index, Color(0, 0, 0))
+                        else:
+                            r, g, b = color
+                            strip.setPixelColor(led_index, Color(int(r * 255), int(g * 255), int(b * 255)))
+                    strip.show()
+                    time.sleep(0.001)  # v1.4.11: 1ms delay for WS281x reset (requires >50μs between frames)
+
                 self._send_json(200, {'result': 'ok'})
                 return
 
@@ -351,35 +357,37 @@ class Handler(BaseHTTPRequestHandler):
                     self._send_json(500, {'error': 'strip init failed'})
                     return
 
-                # Apply all updates to the strip (no show() yet - batch them)
-                for update in updates:
-                    start = int(update.get('index_start', 1))
-                    colors = update.get('colors')
+                # v1.4.11: Lock strip access to prevent thread interleaving
+                with _strip_locks[gpio_pin]:
+                    # Apply all updates to the strip (no show() yet - batch them)
+                    for update in updates:
+                        start = int(update.get('index_start', 1))
+                        colors = update.get('colors')
 
-                    if colors is not None:
-                        # Multi-LED update
-                        for i, color in enumerate(colors):
-                            led_index = start - 1 + i
-                            if led_index >= _strip_sizes[gpio_pin]:
-                                break
-                            if color is None:
-                                strip.setPixelColor(led_index, Color(0, 0, 0))
-                            else:
-                                r, g, b = color
-                                strip.setPixelColor(led_index, Color(int(r * 255), int(g * 255), int(b * 255)))
-                    else:
-                        # Solid color update
-                        end = int(update.get('index_end', start))
-                        r = float(update.get('r', 1.0))
-                        g = float(update.get('g', 1.0))
-                        b = float(update.get('b', 1.0))
-                        c = Color(int(r * 255), int(g * 255), int(b * 255))
-                        for i in range(start - 1, end):
-                            strip.setPixelColor(i, c)
+                        if colors is not None:
+                            # Multi-LED update
+                            for i, color in enumerate(colors):
+                                led_index = start - 1 + i
+                                if led_index >= _strip_sizes[gpio_pin]:
+                                    break
+                                if color is None:
+                                    strip.setPixelColor(led_index, Color(0, 0, 0))
+                                else:
+                                    r, g, b = color
+                                    strip.setPixelColor(led_index, Color(int(r * 255), int(g * 255), int(b * 255)))
+                        else:
+                            # Solid color update
+                            end = int(update.get('index_end', start))
+                            r = float(update.get('r', 1.0))
+                            g = float(update.get('g', 1.0))
+                            b = float(update.get('b', 1.0))
+                            c = Color(int(r * 255), int(g * 255), int(b * 255))
+                            for i in range(start - 1, end):
+                                strip.setPixelColor(i, c)
 
-                # CRITICAL: Single atomic show() for all updates
-                strip.show()
-                time.sleep(0.001)  # v1.4.11: 1ms delay for WS281x reset (requires >50μs between frames)
+                    # CRITICAL: Single atomic show() for all updates
+                    strip.show()
+                    time.sleep(0.001)  # v1.4.11: 1ms delay for WS281x reset (requires >50μs between frames)
 
                 if not _QUIET_MODE:
                     _logger.info(f"Applied set_batch gpio={gpio_pin} updates={len(updates)}")
