@@ -115,10 +115,6 @@ class HeatingDetector(BaseStateDetector):
         ext_target = extruder.get('target', 0)
         ext_power = extruder.get('power', 0)
 
-        # DEBUG: Log power values
-        import logging
-        logging.info(f"[HEATING DEBUG] Extruder: temp={ext_temp:.1f}, target={ext_target:.1f}, power={ext_power:.3f}")
-
         if ext_target > 0:
             # Not at temp yet - still actively heating up
             if (ext_temp + self.TEMP_TOLERANCE) < ext_target:
@@ -132,9 +128,6 @@ class HeatingDetector(BaseStateDetector):
         bed_temp = heater_bed.get('temperature', 0)
         bed_target = heater_bed.get('target', 0)
         bed_power = heater_bed.get('power', 0)
-
-        # DEBUG: Log bed power
-        logging.info(f"[HEATING DEBUG] Bed: temp={bed_temp:.1f}, target={bed_target:.1f}, power={bed_power:.3f}")
 
         if bed_target > 0:
             # Not at temp yet - still actively heating up

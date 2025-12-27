@@ -497,8 +497,8 @@ class Lumen:
                 "webhooks": ["state", "state_message"],
                 "print_stats": ["state", "filename", "info"],
                 "display_status": ["progress", "message"],
-                "heater_bed": ["temperature", "target"],
-                "extruder": ["temperature", "target"],
+                "heater_bed": ["temperature", "target", "power"],
+                "extruder": ["temperature", "target", "power"],
                 "idle_timeout": ["state"],
                 "toolhead": ["position"],
                 # v1.3.0 - Optional sensors (graceful if not present)
@@ -511,8 +511,8 @@ class Lumen:
                 "webhooks": ["state"],
                 "print_stats": ["state", "filename"],
                 "display_status": ["progress"],
-                "heater_bed": ["temperature", "target"],
-                "extruder": ["temperature", "target"],
+                "heater_bed": ["temperature", "target", "power"],
+                "extruder": ["temperature", "target", "power"],
                 "idle_timeout": ["state"],
                 "toolhead": ["position"],
                 # v1.3.0 - Optional sensors
