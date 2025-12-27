@@ -1123,7 +1123,6 @@ class Lumen:
                                     await driver.set_leds(colors)
                         else:
                             # Multiple groups share this GPIO pin - use atomic batch update
-                            self._log_info(f"BATCH: GPIO {gpio_pin} batching {len(batch)} groups")
                             updates = []
                             for driver, colors, group_name in batch:
                                 if len(colors) == 1:

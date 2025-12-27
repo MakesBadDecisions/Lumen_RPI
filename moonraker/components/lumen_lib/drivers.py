@@ -315,20 +315,21 @@ class ProxyDriver(LEDDriver):
         return f"http://{self.proxy_host}:{self.proxy_port}{path}"
 
     async def _post(self, path: str, payload: Dict[str, Any]) -> None:
-        """Fire-and-forget HTTP POST to proxy (v1.4.3: non-blocking for 60 FPS)."""
+        """Blocking HTTP POST to proxy (v1.4.10: serialize batch updates to prevent flickering)."""
         url = self._proxy_url(path)
         data = json.dumps(payload).encode('utf-8')
 
         def _send():
             try:
                 req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-                with urllib.request.urlopen(req, timeout=0.01) as resp:  # v1.4.3: Ultra-fast timeout (10ms) for 60 FPS
+                with urllib.request.urlopen(req, timeout=0.1) as resp:  # v1.4.10: 100ms timeout for batch requests
                     pass  # Don't care about response
             except Exception:
-                pass  # v1.4.3: Silent failure - proxy updates are best-effort at 60 FPS
+                pass  # Silent failure - proxy updates are best-effort
 
-        # v1.4.3: Fire in background, don't await - animation loop must not block
-        asyncio.create_task(asyncio.to_thread(_send))
+        # v1.4.10: BLOCKING - wait for HTTP request to complete before returning
+        # This serializes batch updates and prevents interleaving that causes flickering
+        await asyncio.to_thread(_send)
 
     async def set_color(self, r: float, g: float, b: float) -> None:
         payload = {
