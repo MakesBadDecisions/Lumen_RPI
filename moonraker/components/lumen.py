@@ -10,7 +10,7 @@ Installation:
 
 from __future__ import annotations
 
-__version__ = "1.4.6"
+__version__ = "1.4.7"
 
 import asyncio
 import logging
@@ -626,9 +626,22 @@ class Lumen:
             task = asyncio.create_task(self._apply_event(new_event))
             task.add_done_callback(self._task_exception_handler)
 
-    async def _on_gcode_response(self, response: str) -> None:
+    async def _on_gcode_response(self, *args, **kwargs) -> None:
         """Handle G-code responses to detect macro execution (v1.2.0)."""
+        # v1.4.7 DEBUG: Log what parameters Moonraker is actually passing
+        self._log_info(f"[DEBUG] _on_gcode_response called! args={args}, kwargs={kwargs}")
+
         if not self.klippy_ready:
+            return
+
+        # Try to extract response string from whatever format Moonraker sends
+        response = None
+        if args:
+            response = str(args[0])  # First positional arg
+        elif 'response' in kwargs:
+            response = str(kwargs['response'])  # Keyword arg
+        else:
+            self._log_info(f"[DEBUG] Could not find response string in event data!")
             return
 
         # v1.4.1: CRITICAL - Ignore our own LUMEN messages to prevent infinite loop

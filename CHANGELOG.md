@@ -7,9 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.4.6] - 2025-12-26 🔍 DIAGNOSTIC VERSION
+## [1.4.7] - 2025-12-26 🔍 DIAGNOSTIC VERSION - Event Handler Signature
 
-### 🐛 Investigating - Config Parser Not Loading Macro Settings
+### 🐛 Investigating - Event Handler Not Being Invoked
+
+#### Root Cause Hypothesis
+- v1.4.6 proved config parser IS working correctly (macro lists populated)
+- v1.4.5 subscription IS active ("subscribed to gcode output" message present)
+- v1.4.6 proved `_on_gcode_response()` callback is NEVER invoked (zero debug messages when running G28)
+- **New hypothesis**: Event handler function signature might be incorrect
+  - `_on_status_update()` receives `Dict[str, Any]` parameter
+  - `_on_gcode_response()` expects `str` parameter
+  - **What if Moonraker passes gcode responses differently than expected?**
+
+#### Debug Changes
+- Changed `_on_gcode_response(self, response: str)` to `_on_gcode_response(self, *args, **kwargs)`
+- Added logging to show EXACTLY what parameters Moonraker passes to the callback
+- Added flexible parameter extraction (tries positional args, then keyword args)
+- This will definitively show if callback is being invoked and what data format is used
+
+#### How to Use v1.4.7
+1. Stop Moonraker completely: `sudo systemctl stop moonraker && sleep 3`
+2. Update: `cd ~/lumen && git pull`
+3. Hard start: `sudo systemctl start moonraker && sleep 5`
+4. Watch logs: `journalctl -u moonraker -f | grep "_on_gcode_response"`
+5. Run G28 in Mainsail/Fluidd console
+6. Look for: `[DEBUG] _on_gcode_response called! args=(...), kwargs={...}`
+   - If you see this message: Callback IS being invoked, check the parameter format
+   - If you DON'T see this message: Callback still not being invoked (deeper Moonraker issue)
+
+---
+
+## [1.4.6] - 2025-12-26 🔍 DIAGNOSTIC VERSION - Config Parser
+
+### 🐛 Investigating - Config Parser Not Loading Macro Settings (RESOLVED)
 
 #### Symptoms
 - v1.4.5 subscription fix is working (gcode output being received)
