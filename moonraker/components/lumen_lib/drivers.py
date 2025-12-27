@@ -292,10 +292,19 @@ class GPIODriver(LEDDriver):
         self.strip.show()
 
 
+
+
+# Per-GPIO request queues to serialize updates without blocking animation loop
+_gpio_request_queues: Dict[int, asyncio.Queue] = {}
+_gpio_queue_workers: Dict[int, asyncio.Task] = {}
+
+
 class ProxyDriver(LEDDriver):
     """
     Driver communicating with a helper ws281x proxy server running as root.
     The proxy avoids needing Moonraker to run with raw IO privileges.
+
+    v1.4.10: Uses per-GPIO queue to serialize requests without blocking animation loop.
     """
     def __init__(self, name: str, config: Dict[str, Any], server: Any):
         super().__init__(name, config, server)
@@ -308,39 +317,63 @@ class ProxyDriver(LEDDriver):
         # Color order for WS281x strips (most common is GRB for WS2812B)
         self.color_order = config.get("color_order", "GRB").upper().strip()
 
-        # Note: Strip pre-initialization will happen on first use.
-        # We can't create tasks in __init__ since we're not in an async context yet.
+        # v1.4.10: Ensure queue worker exists for this GPIO pin
+        self._ensure_queue_worker()
+
+    def _ensure_queue_worker(self) -> None:
+        """Ensure background queue worker exists for this GPIO pin."""
+        global _gpio_request_queues, _gpio_queue_workers
+
+        if self.gpio_pin not in _gpio_request_queues:
+            _gpio_request_queues[self.gpio_pin] = asyncio.Queue()
+            # Don't start worker here - will be started on first use when event loop exists
+            _gpio_queue_workers[self.gpio_pin] = None
+
+    async def _start_queue_worker(self) -> None:
+        """Start queue worker if not already running."""
+        global _gpio_queue_workers
+
+        if _gpio_queue_workers[self.gpio_pin] is None or _gpio_queue_workers[self.gpio_pin].done():
+            _gpio_queue_workers[self.gpio_pin] = asyncio.create_task(self._queue_worker())
+
+    async def _queue_worker(self) -> None:
+        """Background worker that processes queued requests serially."""
+        import time
+        queue = _gpio_request_queues[self.gpio_pin]
+
+        while True:
+            try:
+                url, data = await queue.get()
+
+                def _send():
+                    try:
+                        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+                        with urllib.request.urlopen(req, timeout=0.1) as resp:
+                            pass
+                    except Exception:
+                        pass  # Silent failure - proxy updates are best-effort
+
+                # Process request (blocking this worker, but not the animation loop)
+                await asyncio.to_thread(_send)
+                queue.task_done()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                _logger.error(f"[LUMEN] Queue worker error on GPIO {self.gpio_pin}: {e}")
 
     def _proxy_url(self, path: str) -> str:
         return f"http://{self.proxy_host}:{self.proxy_port}{path}"
 
     async def _post(self, path: str, payload: Dict[str, Any]) -> None:
-        """Blocking HTTP POST to proxy (v1.4.10: serialize batch updates to prevent flickering)."""
-        import time
+        """Queue HTTP POST to proxy (v1.4.10: non-blocking with serialized queue)."""
+        # Start worker if needed
+        await self._start_queue_worker()
+
         url = self._proxy_url(path)
         data = json.dumps(payload).encode('utf-8')
 
-        def _send():
-            start_time = time.time()
-            success = False
-            try:
-                req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-                with urllib.request.urlopen(req, timeout=0.1) as resp:  # v1.4.10: 100ms timeout for batch requests
-                    pass  # Don't care about response
-                success = True
-            except Exception as e:
-                elapsed = time.time() - start_time
-                _logger.warning(f"[LUMEN] Proxy HTTP timeout/error after {elapsed*1000:.1f}ms on {path}: {e}")
-
-            if success:
-                elapsed = time.time() - start_time
-                # Log if request took longer than 50ms (half the frame time at 20 FPS)
-                if elapsed > 0.05:
-                    _logger.warning(f"[LUMEN] Slow proxy response: {elapsed*1000:.1f}ms on {path}")
-
-        # v1.4.10: BLOCKING - wait for HTTP request to complete before returning
-        # This serializes batch updates and prevents interleaving that causes flickering
-        await asyncio.to_thread(_send)
+        # Add to queue - returns immediately, worker processes serially
+        await _gpio_request_queues[self.gpio_pin].put((url, data))
 
     async def set_color(self, r: float, g: float, b: float) -> None:
         payload = {
