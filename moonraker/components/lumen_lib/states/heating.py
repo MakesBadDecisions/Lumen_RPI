@@ -69,20 +69,16 @@ class HeatingDetector(BaseStateDetector):
         # Start/continue stability timer
         if self._stable_since is None:
             self._stable_since = current_time
-            logger.info(f"[HEATING DEBUG] Started stability timer at {current_time:.3f}")
 
         # Check if we've been stable long enough to exit heating
         stable_duration = current_time - self._stable_since
-        logger.info(f"[HEATING DEBUG] Stable duration: {stable_duration:.3f}s / {self.STABLE_TIME}s")
 
         if stable_duration >= self.STABLE_TIME:
             # Been stable long enough - exit heating
             self._stable_since = None
-            logger.info(f"[HEATING DEBUG] Returning False - stable for {stable_duration:.3f}s")
             return False
 
         # Still within stability grace period - stay in heating
-        logger.info(f"[HEATING DEBUG] Returning True - within stability grace period ({stable_duration:.3f}s / {self.STABLE_TIME}s)")
         return True
 
     def _any_targets_set(self, status: Dict[str, Any]) -> bool:
