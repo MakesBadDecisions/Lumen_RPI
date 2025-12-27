@@ -7,6 +7,146 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0] - 2025-12-27 🧹 MAJOR CLEANUP - Macro Tracking Removed
+
+### 🎯 **BREAKING CHANGE** - Return to Simple, Reliable Core
+
+After extensive debugging revealed macro tracking caused more problems than it solved, **all macro tracking code has been completely removed**. LUMEN now focuses on what it does best: simple, reliable temperature-based state detection.
+
+### Removed
+
+**Macro Tracking System (v1.2.0-v1.4.8):**
+- Removed all 7 macro-triggered states (homing, meshing, leveling, probing, paused, cancelled, filament)
+- Removed gcode_response event subscription and monitoring
+- Removed homed_axes tracking attempts
+- Removed all `macro_*` configuration settings parsing
+- Removed RESPOND message detection and processing
+- Removed macro timeout and completion detection
+- Removed all macro state detector files (homing.py, meshing.py, etc.)
+
+**Files Deleted:**
+- `moonraker/components/lumen_lib/states/homing.py`
+- `moonraker/components/lumen_lib/states/meshing.py`
+- `moonraker/components/lumen_lib/states/leveling.py`
+- `moonraker/components/lumen_lib/states/probing.py`
+- `moonraker/components/lumen_lib/states/paused.py`
+- `moonraker/components/lumen_lib/states/cancelled.py`
+- `moonraker/components/lumen_lib/states/filament.py`
+
+### Fixed
+
+**Critical Runtime Errors:**
+- Fixed AttributeError from references to non-existent `active_macro_state` and `macro_start_time` in PrinterState
+- Fixed undefined `_active_macro_state` variable references in animation loop
+- Removed unnecessary gcode output subscription that wasted bandwidth
+- Removed homed_axes subscription that provided no value
+
+**Performance Issues:**
+- Eliminated gcode response parsing overhead
+- Removed message filtering logic that ran on every gcode response
+- Simplified animation loop interval calculation
+- Reduced memory footprint by removing macro tracking state variables
+
+**User Experience:**
+- Eliminated flickering during prints (caused by rapid state changes)
+- Removed complexity of macro configuration
+- Eliminated need for LUMEN macro calls in user macros
+- Removed validation warnings for macro event mappings
+
+### Changed
+
+**Core System (now 7 states only):**
+- `idle` - Printer ready, all temps nominal
+- `heating` - Heaters warming up to target
+- `printing` - Active print job at temperature
+- `cooldown` - Print finished, cooling down
+- `error` - Klipper shutdown or error condition
+- `bored` - Idle for extended period (60s default)
+- `sleep` - Bored for extended period (10min default)
+
+**Temperature Tolerance Fix Preserved:**
+- PrintingDetector: 10°C extruder tolerance (prevents flickering from PID fluctuations)
+- PrintingDetector: 5°C bed tolerance (stricter for more stable temps)
+
+**Config Validation:**
+- Now only validates 7 core states
+- Macro event mappings (on_homing, etc.) will generate warnings
+- Macro settings (macro_homing, etc.) silently ignored
+
+### Migration Guide
+
+**If you had macro tracking configured:**
+
+1. **Remove macro event mappings** from your lumen.cfg LED groups:
+   ```ini
+   # REMOVE these lines:
+   on_homing: solid white
+   on_meshing: solid green
+   on_leveling: solid sky
+   on_probing: solid blue
+   on_paused: solid yellow
+   on_cancelled: solid red
+   on_filament: solid lava
+   ```
+
+2. **Remove macro settings** from [lumen_settings]:
+   ```ini
+   # REMOVE these lines:
+   macro_homing: G28, HOMING_OVERRIDE
+   macro_meshing: BED_MESH_CALIBRATE
+   macro_leveling: Z_TILT_ADJUST
+   macro_probing: CARTOGRAPHER_TOUCH_HOME
+   macro_paused: PAUSE
+   macro_cancelled: CANCEL_PRINT
+   macro_filament: M600, FILAMENT_RUNOUT
+   ```
+
+3. **Remove LUMEN macro calls** from your Klipper macros:
+   ```gcode
+   # REMOVE lines like:
+   LUMEN STATE=homing
+   LUMEN STATE=meshing
+   # etc.
+   ```
+
+4. **Remove LUMEN macro definition** (if present):
+   ```gcode
+   # REMOVE entire section:
+   [gcode_macro LUMEN]
+   description: Trigger LUMEN LED state change
+   gcode:
+       ...
+   ```
+
+**What stays the same:**
+- All core state detection (heating, printing, cooldown, idle, bored, sleep, error)
+- All effects (solid, pulse, heartbeat, disco, rainbow, fire, comet, chase, KITT, thermal, progress, off)
+- All drivers (GPIO/proxy, Klipper, PWM)
+- Configuration syntax for LED groups and effects
+- API endpoints
+
+### Why This Change?
+
+**Problems with macro tracking (v1.2.0-v1.4.8):**
+1. Added significant complexity for minimal benefit
+2. Required users to modify their macros with LUMEN STATE calls
+3. Caused LED flickering during prints due to rapid state changes
+4. G-code response parsing added CPU overhead
+5. Silent macros (like G28) couldn't be auto-detected anyway
+6. Introduced hard-to-debug runtime errors
+7. Configuration became too complex
+
+**Benefits of removal:**
+1. Simpler, more reliable codebase
+2. No user macro modifications required
+3. Better performance (no message parsing)
+4. Eliminated flickering issues
+5. Focus on core competency: temperature-based state detection
+6. Easier to maintain and debug
+7. Cleaner configuration
+
+---
+
 ## [1.4.8] - 2025-12-26 📋 INVESTIGATION COMPLETE - Macro Detection Limitations
 
 ### ⚠️ **IMPORTANT FINDINGS** - Fully Automatic Macro Detection Is Impossible

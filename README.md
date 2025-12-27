@@ -2,80 +2,75 @@
 
 **Real-time LED control for Klipper 3D printers via Moonraker**
 
-Smart LED effects that respond to your printer's state in real-time. No macros, no delays, no `AURORA_WAKE` commands.
+Smart LED effects that respond to your printer's state in real-time. No macros, no delays, no complexity.
 
-[![Status](https://img.shields.io/badge/status-beta-yellow)]()
-[![Version](https://img.shields.io/badge/version-v1.4.8-blue)]()
+[![Status](https://img.shields.io/badge/status-stable-green)]()
+[![Version](https://img.shields.io/badge/version-v1.5.0-blue)]()
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> **v1.4.8 Dev** - Macro tracking requires RESPOND messages for silent macros (G28, custom homing, etc.)
+> **v1.5.0 Stable** - Simple, reliable temperature-based state detection. Macro tracking removed.
 
 ---
 
 ## Features
 
-- **14 Printer States** - Automatic detection: idle, heating, printing, cooldown, error, bored, sleep, homing, meshing, leveling, probing, paused, cancelled, filament change
+- **7 Printer States** - Automatic detection: idle, heating, printing, cooldown, error, bored, sleep
 - **12 LED Effects** - solid, pulse, heartbeat, disco, rainbow, fire, comet, chase, KITT scanner, thermal gradient, print progress bar, off
 - **Multi-Group Coordination** - Seamless animations across multiple LED strips with predator/prey chase behavior
 - **3 Driver Types** - GPIO (60fps smooth), Klipper SET_LED (MCU-attached), PWM (non-addressable)
-- **Chamber Temperature Support** - Thermal effect now supports bed, extruder, and chamber temperature sources
-- **Filament Sensor Integration** - Automatic runout detection triggers filament change state
+- **Chamber Temperature Support** - Thermal effect supports bed, extruder, and chamber temperature sources
+- **Filament Sensor Integration** - Automatic runout detection
 - **Modular Architecture** - Plugin-based effect and state systems for easy extension
 - **50+ Named Colors** - Aurora-compatible color palette
 - **Hot Reload** - Update config without restarting Moonraker
 - **Full API** - REST endpoints for status, testing, and control
-- **Production Ready** - Comprehensive testing on Voron Trident with multi-group animations and optimized performance
+- **Production Ready** - Stable, tested, and reliable
 
 ---
 
-## What's New in v1.4.8
+## What's New in v1.5.0
 
-### ⚠️ Macro Tracking Status - Requires RESPOND Messages
+### 🧹 **MAJOR CLEANUP** - Macro Tracking Removed
 
-**The Reality**: After extensive investigation (v1.4.5-v1.4.8), we discovered that **fully automatic macro detection is impossible** for macros that don't generate console output.
+After extensive debugging revealed macro tracking caused more problems than it solved, **all macro tracking code has been completely removed**. LUMEN now focuses on what it does best: simple, reliable temperature-based state detection.
 
-#### Why Automatic Detection Doesn't Work
-1. **G28 produces no gcode responses** - Silent macros can't be detected via `subscribe_gcode_output()`
-2. **`homed_axes` doesn't change** - Klipper doesn't clear homed_axes during homing on most machines
-3. **Subscriptions send deltas only** - Moonraker only broadcasts fields that change, not every field on every update
-4. **Polling is inefficient** - Querying on every position update creates performance overhead
+#### What Changed
+- ❌ **Removed**: All 7 macro-triggered states (homing, meshing, leveling, probing, paused, cancelled, filament)
+- ❌ **Removed**: G-code response monitoring and parsing
+- ❌ **Removed**: Macro configuration requirements
+- ❌ **Removed**: Need for RESPOND messages in your macros
+- ✅ **Fixed**: Flickering during prints (caused by rapid state changes)
+- ✅ **Fixed**: Critical runtime errors from macro tracking
+- ✅ **Improved**: Performance (no message parsing overhead)
+- ✅ **Simplified**: Configuration (no macro settings needed)
 
-#### The Solution - Add RESPOND Messages to Your Macros
+#### Why This Is Better
+**Problems with macro tracking (v1.2.0-v1.4.8):**
+- Added significant complexity for minimal benefit
+- Required users to modify their macros
+- Caused LED flickering during prints
+- Introduced hard-to-debug runtime errors
+- Made configuration confusing
 
-For macros that run silently (G28, custom homing, etc.), add a single `RESPOND` line:
+**Benefits of removal:**
+- Simpler, more reliable codebase
+- No user macro modifications required
+- Better performance, no flickering
+- Focus on core competency: temperature-based state detection
+- Easier to maintain and debug
 
-```gcode
-[gcode_macro G28]
-gcode:
-    RESPOND MSG="LUMEN_HOMING_START"
-    # ... your actual homing code ...
-    G28.1 {rawparams}  # or whatever your homing does
-    RESPOND MSG="LUMEN_HOMING_END"
-```
+#### Migration from v1.4.x
+If you had macro tracking configured, simply remove these from your lumen.cfg:
+- Macro settings: `macro_homing`, `macro_meshing`, etc.
+- Macro events: `on_homing`, `on_meshing`, etc.
+- LUMEN macro calls from your Klipper macros
 
-**Macros that generate output work automatically**:
-- `Z_TILT_ADJUST` - Prints probe results → auto-detected ✓
-- `BED_MESH_CALIBRATE` - Prints "Bed Mesh state saved" → auto-detected ✓
-- `QUAD_GANTRY_LEVEL` - Prints probe results → auto-detected ✓
-
-**Macros that need RESPOND messages**:
-- `G28` / `HOMING_OVERRIDE` - Silent → needs `LUMEN_HOMING_START/END`
-- Custom probe macros - May be silent → add `LUMEN_PROBING_START/END`
+Everything else stays the same!
 
 ### Previous Release (v1.4.4) - Effect-Aware Adaptive FPS
-- **Intelligent FPS scaling** - Automatically adjusts update rates based on effect complexity
-  - Static effects (solid, off): 5 FPS - no animation needed
-  - Slow effects (pulse, heartbeat, thermal, progress): 20 FPS - smooth gradual changes
-  - Fast effects (disco, rainbow, fire, comet, chase, KITT): Full driver speed (30-40 FPS)
-- **Optimized resource usage** - Reduces unnecessary HTTP requests for static/slow effects
-- **Better performance** - Frees CPU/bandwidth for fast animations when needed
-
-### Production Ready
-- All 14 printer states working correctly (idle, heating, printing, cooldown, error, bored, sleep, homing, meshing, leveling, probing, paused, cancelled, filament)
-- All 12 LED effects rendering smoothly (solid, pulse, heartbeat, disco, rainbow, fire, comet, chase, KITT, thermal, progress, off)
-- Macro tracking fully functional with automatic completion detection
-- Multi-group coordination working perfectly (predator/prey chase behavior)
-- Hot reload, filament sensors, temperature sources all verified working
+- Intelligent FPS scaling based on effect complexity
+- Static effects: 5 FPS, Slow effects: 20 FPS, Fast effects: 30-40 FPS
+- Optimized resource usage and better performance
 
 See [CHANGELOG.md](CHANGELOG.md) for complete version history.
 
