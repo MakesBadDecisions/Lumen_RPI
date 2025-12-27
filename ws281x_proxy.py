@@ -269,7 +269,7 @@ class Handler(BaseHTTPRequestHandler):
                     for i in range(start - 1, end):
                         strip.setPixelColor(i, c)
                     strip.show()
-                    time.sleep(0.001)  # v1.4.11: 1ms delay for WS281x reset (requires >50μs between frames)
+                # WS281x reset time handled by hardware (>50μs automatically)
 
                 if not _QUIET_MODE:  # v1.4.3: Skip logging in quiet mode
                     _logger.info(f"Applied set_color gpio={gpio_pin} start={start} end={end} color=({int(r*255)},{int(g*255)},{int(b*255)})")
@@ -321,7 +321,7 @@ class Handler(BaseHTTPRequestHandler):
                             r, g, b = color
                             strip.setPixelColor(led_index, Color(int(r * 255), int(g * 255), int(b * 255)))
                     strip.show()
-                    time.sleep(0.001)  # v1.4.11: 1ms delay for WS281x reset (requires >50μs between frames)
+                # WS281x reset time handled by hardware (>50μs automatically)
 
                 self._send_json(200, {'result': 'ok'})
                 return
@@ -360,9 +360,18 @@ class Handler(BaseHTTPRequestHandler):
                 # v1.4.11: Lock strip access to prevent thread interleaving
                 with _strip_locks[gpio_pin]:
                     # Apply all updates to the strip (no show() yet - batch them)
-                    for update in updates:
+                    for update_idx, update in enumerate(updates):
                         start = int(update.get('index_start', 1))
                         colors = update.get('colors')
+
+                        # v1.4.11: Debug logging for center group only
+                        if start >= 37 and start <= 53:
+                            if colors is not None:
+                                _logger.info(f"[BATCH {update_idx}] Center multicolor: start={start} len={len(colors)}")
+                            else:
+                                end = int(update.get('index_end', start))
+                                r, g, b = update.get('r', 0), update.get('g', 0), update.get('b', 0)
+                                _logger.info(f"[BATCH {update_idx}] Center solid: start={start} end={end} rgb=({r:.2f},{g:.2f},{b:.2f})")
 
                         if colors is not None:
                             # Multi-LED update
@@ -387,7 +396,7 @@ class Handler(BaseHTTPRequestHandler):
 
                     # CRITICAL: Single atomic show() for all updates
                     strip.show()
-                    time.sleep(0.001)  # v1.4.11: 1ms delay for WS281x reset (requires >50μs between frames)
+                # WS281x reset time handled by hardware (>50μs automatically)
 
                 if not _QUIET_MODE:
                     _logger.info(f"Applied set_batch gpio={gpio_pin} updates={len(updates)}")
