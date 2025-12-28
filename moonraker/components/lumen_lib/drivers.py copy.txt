@@ -314,19 +314,19 @@ class ProxyDriver(LEDDriver):
         return f"http://{self.proxy_host}:{self.proxy_port}{path}"
 
     async def _post(self, path: str, payload: Dict[str, Any]) -> None:
-        """TEST: Synchronous HTTP POST - wait for completion before returning."""
+        """Fire-and-forget HTTP POST to proxy (v1.4.12: reverted to simple async)."""
         url = self._proxy_url(path)
         data = json.dumps(payload).encode('utf-8')
 
         def _send():
             try:
                 req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-                urllib.request.urlopen(req, timeout=1.0)  # Longer timeout, actually wait
+                urllib.request.urlopen(req, timeout=0.1)
             except Exception:
                 pass  # Silent failure - proxy updates are best-effort
 
-        # WAIT for completion - no fire-and-forget
-        await asyncio.to_thread(_send)
+        # Fire-and-forget: Launch request in background without waiting
+        asyncio.create_task(asyncio.to_thread(_send))
 
     async def set_color(self, r: float, g: float, b: float) -> None:
         payload = {
